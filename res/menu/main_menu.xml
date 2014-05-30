@@ -1,0 +1,35 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:boxapp="http://schemas.android.com/apk/res-auto" >
+	<item
+		android:id="@+id/menu_upload"
+		android:orderInCategory="100"
+		android:title="@string/upload"
+		android:icon="@drawable/upload"
+		android:showAsAction="always"
+		boxapp:actionProviderClass="android.support.v7.widget.ShareActionProvider"/>
+		
+	<item
+		android:id="@+id/menu_create_folder"
+		android:orderInCategory="200"
+		android:title="@string/new_folder"
+		android:icon="@drawable/add_folder"
+		android:showAsAction="always"
+		boxapp:actionProviderClass="android.support.v7.widget.ShareActionProvider"/>
+	
+	<item
+		android:id="@+id/menu_paste"
+		android:orderInCategory="300"
+		android:title="@string/new_folder"
+		android:icon="@drawable/paste"
+		android:showAsAction="always"
+		android:visible="false"
+		boxapp:actionProviderClass="android.support.v7.widget.ShareActionProvider"/>
+	
+	<item
+		android:id="@+id/menu_logout"
+		android:orderInCategory="400"
+		android:title="@string/logout"
+		android:icon="@drawable/logout"
+		android:showAsAction="always"
+		boxapp:actionProviderClass="android.support.v7.widget.ShareActionProvider"/>
+</menu>
