@@ -60,6 +60,7 @@ import com.boxapp.utils.AsyncLib;
 import com.boxapp.utils.BoxWidgetProvider;
 import com.boxapp.utils.FileInfo;
 import com.boxapp.utils.FileListAdapter;
+import com.boxapp.utils.KeyMap;
 
 public final class MainActivity extends Activity implements DownloadListener {
 	public static String jsonQuery = null;
@@ -111,10 +112,9 @@ public final class MainActivity extends Activity implements DownloadListener {
 		registerForContextMenu(mFileListView);
 		getActionBar().setHomeButtonEnabled(true);
 		
-		SharedPreferences userDetails = getSharedPreferences("userdetails", MODE_PRIVATE);
-		mAccessToken = userDetails.getString("access_token", "");
-		Log.i("Access", mAccessToken);
-		mRefreshToken = userDetails.getString("refresh_token", "");
+		SharedPreferences userDetails = getSharedPreferences(KeyMap.USER_DETAILS, MODE_PRIVATE);
+		mAccessToken = userDetails.getString(KeyMap.ACCESS_TOKEN, "");
+		mRefreshToken = userDetails.getString(KeyMap.REFRESH_TOKEN, "");
 		task = new AsyncLib(context, mAccessToken, mRefreshToken);
 		
 		File folder = new File(EXT_STORAGE_PATH);
@@ -124,7 +124,7 @@ public final class MainActivity extends Activity implements DownloadListener {
 		folderList = new ArrayList<TextView>();
 		homeButton = addPathButton(mCurDirName, mCurDirId);
 		if(savedInstanceState != null && savedInstanceState.containsKey("adapter")){
-			((RelativeLayout)findViewById(R.id.loadFilesProgress)).setVisibility(View.INVISIBLE);
+			findViewById(R.id.loadFilesProgress).setVisibility(View.INVISIBLE);
 			mFileListView.setAdapter((FileListAdapter)savedInstanceState.getSerializable("adapter"));
 		} else 
 		if(isNetworkConnected()) {
@@ -172,23 +172,7 @@ public final class MainActivity extends Activity implements DownloadListener {
 			}
 		});
 	}
-	
-//	@Override
-//	protected void onSaveInstanceState(Bundle outState) {
-//		outState.putSerializable("adapter", (FileListAdapter)mFileListView.getAdapter());
-//		super.onSaveInstanceState(outState);
-//	}
 
-//	@Override
-//	public void onConfigurationChanged(Configuration newConfig) {
-//		setContentView(R.layout.activity_main);
-//		mFileListView = ((ListView)findViewById(R.id.fileListView));
-//		mFileListView.setAdapter(mAdapter);
-//		mFileListView.setVisibility(View.VISIBLE);
-//		((RelativeLayout)findViewById(R.id.loadFilesProgress)).setVisibility(View.INVISIBLE);
-//		super.onConfigurationChanged(newConfig);
-//	}
-//	
 	@Override
 	public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
 		super.onCreateContextMenu(menu, v, menuInfo);

@@ -6,6 +6,7 @@ package com.boxapp.utils;
 public class KeyMap {
     public static final String REQUEST_URL = "request_url";
     public static final String ACCESS_TOKEN = "access_token";
+    public static final String REFRESH_TOKEN = "refresh_token";
     public static final String FILE_IDENT = "file_ident";
     public static final String FILE_NAME = "file_name";
     public static final String POSITION = "position";
@@ -13,7 +14,7 @@ public class KeyMap {
     public static final String CLIENT_ID = "client_id";
     public static final String CLIENT_SECRET = "client_secret";
     public static final String GRANT_TYPE = "grant_type";
-    public static final String REFRESH_TOKEN = "refresh_token";
+    public static final String CODE = "code";
 
 
     //Filetypes
@@ -40,4 +41,6 @@ public class KeyMap {
     public static final String FILE = "file";
     public static final String FILE_ID = "file_id";
     public static final String ETAG = "etag";
+    public static final String PATH = "path";
+
 }

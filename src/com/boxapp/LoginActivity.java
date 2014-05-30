@@ -1,8 +1,16 @@
 package com.boxapp;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import android.app.Activity;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.Editor;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.Toast;
+
+import com.boxapp.utils.KeyMap;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -18,17 +26,11 @@ import org.apache.http.util.EntityUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
-import android.net.Uri;
-import android.os.AsyncTask;
-import android.os.Bundle;
-import android.util.Log;
-import android.widget.Toast;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-public class AuthActivity extends Activity {
+public class LoginActivity extends Activity {
 	
 	private static final String TAG = "AUTH ACTIVITY";
 	private static final String CLIENT_ID = "8js646cfoogrnoi6zvnnb2yfl4f3uuok";
@@ -45,15 +47,16 @@ public class AuthActivity extends Activity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setContentView(R.layout.auth_activity);
+		setContentView(R.layout.login_activity);
 		Intent intent = getIntent();
 		Uri uri = intent.getData();
 		PostQuery post = new PostQuery();
 		if (uri != null && uri.toString().startsWith(URL_DESRIPTION_PAGE + "?state")) {
 			code = uri.getQueryParameter("code");
 			if(code != null){
-				getAccessToken();
-				post.execute();
+                Log.d("CODE", code);
+//				getAccessToken();
+//				post.execute();
 			}
 		}
 		else if (uri != null && uri.toString().startsWith(URL_DESRIPTION_PAGE + "?error")) {
@@ -70,8 +73,8 @@ public class AuthActivity extends Activity {
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
-			access_token = getToken(responseStr, "access_token");
-			refresh_token = getToken(responseStr, "refresh_token");
+			access_token = getToken(responseStr, KeyMap.ACCESS_TOKEN);
+			refresh_token = getToken(responseStr, KeyMap.REFRESH_TOKEN);
 			return null;
 		}
 
@@ -79,9 +82,9 @@ public class AuthActivity extends Activity {
 		protected void onPostExecute(Integer result) {
 			super.onPostExecute(result);
 			recordPreferences();
-			Toast.makeText(AuthActivity.this, getString(R.string.auth_success), Toast.LENGTH_LONG).show();
+			Toast.makeText(LoginActivity.this, getString(R.string.auth_success), Toast.LENGTH_LONG).show();
 			responseStr = null;
-			Intent intent = new Intent(AuthActivity.this, MainActivity.class);
+			Intent intent = new Intent(LoginActivity.this, MainActivity.class);
 			startActivity(intent);
 			System.exit(0);
 		}
@@ -89,10 +92,10 @@ public class AuthActivity extends Activity {
 		
 	private void getAccessToken(){
 		List<NameValuePair> params = new ArrayList<NameValuePair>();
-		params.add(new BasicNameValuePair("client_id", CLIENT_ID));
-		params.add(new BasicNameValuePair("client_secret", CLIENT_SECRET));
-		params.add(new BasicNameValuePair("grant_type", "authorization_code"));
-		params.add(new BasicNameValuePair("code", code));
+		params.add(new BasicNameValuePair(KeyMap.CLIENT_ID, CLIENT_ID));
+		params.add(new BasicNameValuePair(KeyMap.CLIENT_SECRET, CLIENT_SECRET));
+		params.add(new BasicNameValuePair(KeyMap.GRANT_TYPE, "authorization_code"));
+		params.add(new BasicNameValuePair(KeyMap.CODE, code));
 		postThreadData(params);
 	}
 	

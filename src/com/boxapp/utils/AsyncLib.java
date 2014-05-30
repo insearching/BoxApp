@@ -82,7 +82,7 @@ public final class AsyncLib {
         mProgressLayout = (RelativeLayout) ((Activity) mContext).findViewById(R.id.loadFilesProgress);
         mTopMenu = (LinearLayout) ((Activity) mContext).findViewById(R.id.pathLayout);
 
-        extStoragePath = Environment.getExternalStorageDirectory().getPath() + mContext.getString(R.string.app_name);
+        extStoragePath = Environment.getExternalStorageDirectory().getPath() + "/" + mContext.getString(R.string.app_name);
     }
 
     public void getData(String requestUrl, String curDir, ArrayList<TextView> folderList) {
@@ -110,7 +110,8 @@ public final class AsyncLib {
                 .putExtra(KeyMap.ACCESS_TOKEN, mAccessToken)
                 .putExtra(KeyMap.FILE_IDENT, ident)
                 .putExtra(KeyMap.FILE_NAME, fileName)
-                .putExtra(KeyMap.POSITION, position);
+                .putExtra(KeyMap.POSITION, position)
+                .putExtra(KeyMap.PATH, extStoragePath);
         mContext.bindService(intent, mConn, Context.BIND_AUTO_CREATE);
         mContext.startService(intent);
     }
@@ -474,7 +475,7 @@ public final class AsyncLib {
      * Gets info about file or folder, without array
      * in JSON query.
      *
-     * @param json  JSON data got from response
+     * @param json   JSON data got from response
      * @param number number of file or folder in JSON
      * @return FileInfo object with info about file
      */
@@ -628,7 +629,7 @@ public final class AsyncLib {
                 result = response.getStatusLine().getStatusCode();
                 Log.i("RESULT RENAME", String.valueOf(result));
             } catch (Exception e) {
-                Log.e("PUT DATA", e.getMessage());
+                Log.e(TAG, e.getMessage());
             }
             return result;
         }
