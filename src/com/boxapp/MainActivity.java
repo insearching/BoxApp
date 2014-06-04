@@ -185,13 +185,13 @@ public final class MainActivity extends Activity implements DownloadListener {
 		String type = fi.getType();
 		menu.setHeaderTitle("Select option");
 		
-		if(type.equals("file")) {	
+		if(type.equals(KeyMap.FILE)) {
 			if(isFileOnDevice(name, ident))
 				menu.add(0, OPEN, Menu.NONE, R.string.open);
 			else
 				menu.add(0, DOWNLOAD, Menu.NONE, R.string.download);
 		}
-		else if(type.equals("folder")) {
+		else if(type.equals(KeyMap.FOLDER)) {
 			menu.add(0, OPEN, Menu.NONE, R.string.open);
 		}
 		menu.add(0, COPY, Menu.NONE, R.string.copy);
@@ -219,12 +219,12 @@ public final class MainActivity extends Activity implements DownloadListener {
 		
 		switch(optionSelected) {
 			case(OPEN):
-				if(type.equals("file")){
+				if(type.equals(KeyMap.FILE)){
 					if(isFileOnDevice(name, ident)){
 						openFile(name);
 					}
 				}
-				else if(type.equals("folder")){
+				else if(type.equals(KeyMap.FOLDER)){
 					isFolderChanged = true;
 					openFolder(ident, name);
 				}

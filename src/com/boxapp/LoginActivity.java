@@ -40,10 +40,10 @@ public class LoginActivity extends Activity {
 	
 	private static String code = null;
 	private static String responseStr = null;
-	private static String access_token = null;
-	private static String refresh_token = null;
 	private boolean postRequestPerforming = false;
-	
+
+
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -54,9 +54,8 @@ public class LoginActivity extends Activity {
 		if (uri != null && uri.toString().startsWith(URL_DESRIPTION_PAGE + "?state")) {
 			code = uri.getQueryParameter("code");
 			if(code != null){
-                Log.d("CODE", code);
-//				getAccessToken();
-//				post.execute();
+				getAccessToken();
+				post.execute();
 			}
 		}
 		else if (uri != null && uri.toString().startsWith(URL_DESRIPTION_PAGE + "?error")) {
@@ -64,24 +63,23 @@ public class LoginActivity extends Activity {
 		}
 	}
 
-	class PostQuery extends AsyncTask<Integer, Integer, Integer> {
+	class PostQuery extends AsyncTask<Void, Integer, Credentials> {
 		@Override
-		protected Integer doInBackground(Integer... p) {
+		protected Credentials doInBackground(Void... params) {
 			while(responseStr == null || postRequestPerforming)
 				try {
 					Thread.sleep(100);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
-			access_token = getToken(responseStr, KeyMap.ACCESS_TOKEN);
-			refresh_token = getToken(responseStr, KeyMap.REFRESH_TOKEN);
-			return null;
+
+            return new Credentials(getToken(responseStr, KeyMap.ACCESS_TOKEN), getToken(responseStr, KeyMap.REFRESH_TOKEN));
 		}
 
 		@Override
-		protected void onPostExecute(Integer result) {
+		protected void onPostExecute(Credentials result) {
 			super.onPostExecute(result);
-			recordPreferences();
+			recordPreferences(result);
 			Toast.makeText(LoginActivity.this, getString(R.string.auth_success), Toast.LENGTH_LONG).show();
 			responseStr = null;
 			Intent intent = new Intent(LoginActivity.this, MainActivity.class);
@@ -142,13 +140,32 @@ public class LoginActivity extends Activity {
 		return token;
 	}
 	
-	private void recordPreferences() {
-		SharedPreferences userDetails = getSharedPreferences("userdetails", MODE_PRIVATE);
+	private void recordPreferences(Credentials cred) {
+		SharedPreferences userDetails = getSharedPreferences(KeyMap.USER_DETAILS, MODE_PRIVATE);
 		Editor edit = userDetails.edit();
 		edit.clear();
-		edit.putString("access_token", access_token.trim());
-		edit.putString("refresh_token", refresh_token.trim());
+		edit.putString(KeyMap.ACCESS_TOKEN, cred.getAccessToken());
+		edit.putString(KeyMap.REFRESH_TOKEN, cred.getRefreshToken());
 		edit.commit();
-		Log.d(TAG, "Data successfully recorded");
 	}
+
+    class Credentials {
+        String accessToken;
+        String refreshToken;
+
+        Credentials(String accessToken, String refreshToken) {
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
+        }
+
+        public String getAccessToken() {
+            return accessToken.trim();
+        }
+
+        public String getRefreshToken() {
+            return refreshToken.trim();
+        }
+
+
+    }
 }

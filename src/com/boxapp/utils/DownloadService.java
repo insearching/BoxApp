@@ -51,7 +51,10 @@ public class DownloadService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        android.os.Debug.waitForDebugger();
+
+        if(android.os.Debug.isDebuggerConnected())
+            android.os.Debug.waitForDebugger();
+
         Log.d(TAG, "CREATED");
     }
 

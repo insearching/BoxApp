@@ -19,6 +19,7 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.boxapp.BoxLoginActivity;
 import com.boxapp.MainActivity;
 import com.boxapp.R;
 
@@ -88,12 +89,12 @@ public final class AsyncLib {
     public void getData(String requestUrl, String curDir, ArrayList<TextView> folderList) {
         mCurDirId = curDir;
         mFolderList = folderList;
-        GetData gd = new GetData();
-        gd.execute(requestUrl + curDir);
+
+        new GetData().execute(requestUrl + curDir);
     }
 
     public void downloadFile(String requestUrl, String ident, String fileName, String position) {
-        ServiceConnection mConn = new ServiceConnection() {
+        ServiceConnection sConn = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder binder) {
                 mService = ((DownloadService.FileDownloadBinder) binder).getService();
@@ -112,7 +113,7 @@ public final class AsyncLib {
                 .putExtra(KeyMap.FILE_NAME, fileName)
                 .putExtra(KeyMap.POSITION, position)
                 .putExtra(KeyMap.PATH, extStoragePath);
-        mContext.bindService(intent, mConn, Context.BIND_AUTO_CREATE);
+        mContext.bindService(intent, sConn, Context.BIND_AUTO_CREATE);
         mContext.startService(intent);
     }
 
@@ -250,9 +251,11 @@ public final class AsyncLib {
     public void authorize() {
         String response_type = "code";
         Uri uri = Uri.parse(Credentials.AUTH_URL + "?response_type=" + response_type + "&client_id=" + Credentials.CLIENT_ID);
-        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        Intent intent = new Intent(mContext, BoxLoginActivity.class);
+        intent.putExtra(KeyMap.REQUEST_URL, Credentials.AUTH_URL + "?response_type=" + response_type + "&client_id=" + Credentials.CLIENT_ID);
         mContext.startActivity(intent);
-        System.exit(0);
+        ((MainActivity)mContext).finish();
+        //System.exit(0);
     }
 
     /**
