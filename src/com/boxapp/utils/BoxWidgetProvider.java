@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -42,7 +41,6 @@ public class BoxWidgetProvider extends AppWidgetProvider {
 					remoteViews.setViewVisibility(R.id.downloadBar, View.VISIBLE);
 					remoteViews.setProgressBar(R.id.downloadBar, 100, progress, false);
 					remoteViews.setTextViewText(R.id.update, downloadStatus);
-					Log.wtf("WIDGET", ""+ progress);
 				}
 				if(downloadStatus.endsWith(context.getString(R.string.downloaded))){
 					remoteViews.setViewVisibility(R.id.downloadBar, View.INVISIBLE);

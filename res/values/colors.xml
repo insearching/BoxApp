@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
+    <color name="app_bg">#ffffffff</color>
 	<color name="notepad_paper">#AAFFFF99</color>
 	<color name="notepad_lines">#AAFFFF99</color>
 	<color name="notepad_margin">#AAFFFF99</color>

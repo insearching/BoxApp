@@ -1,6 +1,5 @@
 package com.boxapp.utils;
 
-import android.annotation.SuppressLint;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
@@ -54,13 +53,10 @@ public class DownloadService extends Service {
 
         if(android.os.Debug.isDebuggerConnected())
             android.os.Debug.waitForDebugger();
-
-        Log.d(TAG, "CREATED");
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "onStartCommand");
         String requestUrl = intent.getStringExtra(KeyMap.REQUEST_URL);
         String accessToken = intent.getStringExtra(KeyMap.ACCESS_TOKEN);
         String fileIdent = intent.getStringExtra(KeyMap.FILE_IDENT);
@@ -73,14 +69,7 @@ public class DownloadService extends Service {
     }
 
     @Override
-    public void onDestroy() {
-        super.onDestroy();
-        Log.d(TAG, "DESTORY");
-    }
-
-    @Override
     public IBinder onBind(Intent intent) {
-        Log.d(TAG, "onBind");
         return mBinder;
     }
 
@@ -131,7 +120,7 @@ public class DownloadService extends Service {
                         // convert String into InputStream
                         InputStream is = resEntityGet.getContent();
                         long lengthOfFile = resEntityGet.getContentLength();
-                        Log.i(TAG, String.valueOf(lengthOfFile));
+
                         // input stream to read file - with 8k buffer
                         InputStream input = new BufferedInputStream(is, 8192);
                         // Output stream to write file
@@ -167,7 +156,7 @@ public class DownloadService extends Service {
             super.onProgressUpdate(progress);
             if ((progress[0] % 5) == 0 && mProgress != progress[0]) {
                 mProgress = progress[0];
-                showDownloadNotification(fileName, "Downloading", mProgress);
+                showDownloadNotification(fileName, getString(R.string.downloading), mProgress);
                 if (downloadListener != null) {
                     downloadListener.onProgressChanged(mProgress, fileName);
                 }
@@ -177,10 +166,8 @@ public class DownloadService extends Service {
         @Override
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
-            Log.i(TAG, String.valueOf(result));
             if (result != null && result == 200) {
                 showNotification(fileName, getString(R.string.downloaded));
-                Toast.makeText(mContext, getString(R.string.download_completed), Toast.LENGTH_LONG).show();
                 if (downloadListener != null)
                     downloadListener.onDownloadCompleted(Integer.parseInt(position), fileName);
             } else {
@@ -242,7 +229,6 @@ public class DownloadService extends Service {
         if (!file.exists())
             file.mkdirs();
 
-        file = null;
         try {
             // Create file or re-download if needest
             file = new File(sFolder + fileName);
@@ -259,7 +245,6 @@ public class DownloadService extends Service {
         return file;
     }
 
-    @SuppressLint("InlinedApi")
     private static void saveFileData(Context context, String fileName, String fileIdent) {
         SharedPreferences downloadPrefs = context.getSharedPreferences("downloaded_files", Context.MODE_MULTI_PROCESS);
         Editor edit = downloadPrefs.edit();

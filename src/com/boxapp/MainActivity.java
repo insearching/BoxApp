@@ -100,7 +100,6 @@ public final class MainActivity extends Activity implements DownloadListener {
 	private TextView homeButton;
 	private boolean isFolderChanged = false;
 	private Menu menu;
-	private String mStatus = "";
 	
 	@SuppressLint("NewApi")
 	@Override
@@ -153,13 +152,15 @@ public final class MainActivity extends Activity implements DownloadListener {
 					openFolder(ident, name);
 				}
 				else if(type.equals("file")) {
-					Log.i(TAG, EXT_STORAGE_PATH + "/" + name);
 					try {
 						if(isFileOnDevice(name, ident)) {
 							openFile(name);
 						}
 						else {
 							isFolderChanged = false;
+                            v.findViewById(R.id.progressBar).setVisibility(View.VISIBLE);
+                            v.findViewById(R.id.download_status).setVisibility(View.INVISIBLE);
+
 							task.downloadFile(ROOT_URL + "files/" + ident + "/content", 
 									ident, name, String.valueOf(position));
 						}
@@ -574,7 +575,6 @@ public final class MainActivity extends Activity implements DownloadListener {
 		Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
 		intent.putExtra("status", getString(R.string.downloading) +" "+ name);
 		intent.putExtra("progress", progress);
-		Log.wtf("MAIN", ""+ progress);
 		getApplicationContext().sendBroadcast(intent);
 	}
 
