@@ -23,11 +23,11 @@
         <item name="android:windowNoTitle">true</item>
     </style>
 
-    <style name="CustomProgressBar" parent="android:Widget.ProgressBar.Small">
+    <style name="CustomProgressBar" parent="android:Widget.ProgressBar.Large">
         <item name="android:indeterminateOnly">true</item>
         <item name="android:indeterminateDrawable">@drawable/progress_bar_bg</item>
-        <item name="android:minHeight">35dip</item>
-        <item name="android:maxHeight">45dip</item>
+        <item name="android:minHeight">15dip</item>
+        <item name="android:maxHeight">25dip</item>
     </style>
 
     <style name="CustomProgressBarLarge" parent="android:Widget.ProgressBar.Large">

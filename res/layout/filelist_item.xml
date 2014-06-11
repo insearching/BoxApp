@@ -1,50 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-	android:layout_width="match_parent"
-	android:layout_height="match_parent"
-	android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
     android:padding="10dp">
-	<ImageView
-		android:id="@+id/file_icon"
-		android:layout_width="wrap_content"
-		android:layout_height="wrap_content"
-		android:layout_alignParentLeft="true"
-		android:layout_centerVertical="true"
-		android:contentDescription="@string/debug"
-		android:layout_marginLeft="10dp"
-		android:src="@drawable/ic_launcher">
-	</ImageView>
-	
-	<TextView
-		android:id="@+id/file_name"
-		android:layout_width="wrap_content"
-		android:layout_height="wrap_content"
-		android:layout_centerVertical="true"
-		android:scrollHorizontally="true"
-		android:ellipsize="marquee"
-		android:marqueeRepeatLimit="marquee_forever"
-		android:singleLine="true"
-		android:text="@string/app_name"
-		android:layout_toRightOf="@id/file_icon"
-		android:layout_toLeftOf="@+id/download_status">
-	</TextView>
 
-	<ImageView
-	    android:id="@+id/download_status"
-	    android:layout_width="wrap_content"
-	    android:layout_height="match_parent"
-	    android:layout_centerVertical="true"
-	    android:layout_alignParentRight="true"
-	    android:contentDescription="@string/debug"
-	    android:src="@drawable/non_downloaded" />
+    <ImageView
+        android:id="@+id/file_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_centerVertical="true"
+        android:contentDescription="@string/debug"
+        android:layout_marginLeft="10dp"
+        android:src="@drawable/ic_launcher" />
+
+    <TextView
+        android:id="@+id/file_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:scrollHorizontally="true"
+        android:ellipsize="marquee"
+        android:marqueeRepeatLimit="marquee_forever"
+        android:singleLine="true"
+        android:text="@string/app_name"
+        android:layout_toRightOf="@id/file_icon"
+        android:layout_toLeftOf="@+id/download_status" />
+
+    <ImageView
+        android:id="@+id/download_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_alignParentRight="true"
+        android:contentDescription="@string/debug"
+        android:src="@drawable/non_downloaded" />
 
     <ProgressBar
         android:layout_width="wrap_content"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:id="@+id/progressBar"
         style="@style/CustomProgressBar"
         android:layout_centerVertical="true"
+        android:layout_alignLeft="@id/download_status"
+        android:layout_alignRight="@id/download_status"
         android:layout_alignParentRight="true"
-        android:visibility="invisible"/>
+        android:visibility="invisible" />
 
 </RelativeLayout>

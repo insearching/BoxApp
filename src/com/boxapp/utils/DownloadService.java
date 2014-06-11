@@ -95,7 +95,6 @@ public class DownloadService extends Service {
         protected void onPreExecute() {
             super.onPreExecute();
             mProgress = 0;
-            Toast.makeText(mContext, getString(R.string.download_starting), Toast.LENGTH_LONG).show();
         }
 
         @Override
