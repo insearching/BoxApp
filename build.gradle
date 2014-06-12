@@ -14,15 +14,14 @@ repositories {
 }
 dependencies {
     compile fileTree(dir: 'libs', include: '*.jar')
-
     compile 'com.android.support:support-v4:19.1.0'
     compile 'com.android.support:appcompat-v7:19.1.0'
+    compile project(':lib')
 }
 
 android {
     compileSdkVersion 19
-    buildToolsVersion "19.1.0"
-
+    buildToolsVersion '19.1.0'
     sourceSets {
         main {
             manifest.srcFile 'AndroidManifest.xml'
@@ -45,5 +44,10 @@ android {
         // by a similar customization.
         debug.setRoot('build-types/debug')
         release.setRoot('build-types/release')
+    }
+    defaultConfig {}
+    productFlavors {
+    }
+    buildTypes {
     }
 }

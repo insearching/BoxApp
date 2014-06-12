@@ -7,7 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
-import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -51,7 +50,7 @@ public class DownloadService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        if(android.os.Debug.isDebuggerConnected())
+        if (android.os.Debug.isDebuggerConnected())
             android.os.Debug.waitForDebugger();
     }
 
@@ -177,9 +176,6 @@ public class DownloadService extends Service {
     }
 
     private void showDownloadNotification(String title, String text, int progress) {
-        Bitmap largeIcon = BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher);
-        int smallIcon = R.drawable.downloading;
-
         NotificationManager nm = (NotificationManager)
                 getApplicationContext()
                         .getSystemService(Context.NOTIFICATION_SERVICE);
@@ -187,10 +183,11 @@ public class DownloadService extends Service {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
         builder.setAutoCancel(true)
                 .setContentTitle(title)
-                .setContentText(text)
-                .setLargeIcon(largeIcon)
-                .setSmallIcon(smallIcon)
-                .setProgress(100, progress, false);
+                .setContentText(text + " " + progress + "%")
+                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher))
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setProgress(100, progress, false)
+                .setTicker(getString(R.string.downloading) + " " + title);
         nm.notify(0, builder.build());
     }
 

@@ -11,7 +11,7 @@
         <item name="android:textSize">12sp</item>
     </style>
 
-    <style name="Widget.Styled.ActionBar" parent="@style/Widget.AppCompat.Light.ActionBar">
+    <style name="Widget.Styled.fActionBar" parent="@style/Widget.AppCompat.Light.ActionBar">
         <!-- Setting values in the default namespace affects API levels 7-13 -->
         <item name="background">@drawable/abc_ab_solid_light_holo</item>
         <item name="backgroundStacked">@drawable/abc_ab_stacked_solid_light_holo</item>
