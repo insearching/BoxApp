@@ -1,11 +1,5 @@
 package com.boxapp;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -20,6 +14,12 @@ import android.widget.ListView;
 import com.boxapp.utils.FileInfo;
 import com.boxapp.utils.FileListAdapter;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 public class ExplorerActivity extends Activity {
 
 	private List<String> path = null;
@@ -32,29 +32,37 @@ public class ExplorerActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.explorer);
 		mFileListView = (ListView)findViewById(R.id.fileList);
-		getDir(root);
-		
-		mFileListView.setOnItemClickListener(new OnItemClickListener() {
+        try {
+            getDir(root);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        mFileListView.setOnItemClickListener(new OnItemClickListener() {
 			@Override
 			public void onItemClick(AdapterView<?> a,  View v,int position, long id) {
 				File file = new File(path.get(position));
-				Intent i = getIntent();
+				Intent intent = getIntent();
 				Log.i("TAG", path.get(position));
 				if (file.isDirectory()) {
 					if(file.canRead()) {
-						getDir(path.get(position));
+                        try {
+                            getDir(path.get(position));
+                        }catch (Exception ex){
+                            ex.printStackTrace();
+                        }
 					}
 				}
 				else {
-					i.putExtra("path", path.get(position));
-					setResult(RESULT_OK, i);
+                    intent.putExtra("path", path.get(position));
+					setResult(RESULT_OK, intent);
 					finish();
 				}
 			}
 		});
 	}
 	
-	private void getDir(String dirPath) {
+	private void getDir(String dirPath) throws Exception{
 		ArrayList<FileInfo> fileList = new ArrayList<FileInfo>();
 		path = new ArrayList<String>();
 		File f = new File(dirPath);
@@ -93,16 +101,25 @@ public class ExplorerActivity extends Activity {
 		final String ATTRIBUTE_NAME_TITLE = "title";
 		final String ATTRIBUTE_NAME_IMAGE = "image";
 		
-		Map<String, Integer> formats = new HashMap<String, Integer>();
-		formats.put(".jpg", R.drawable.jpeg_icon);
-		formats.put(".jpeg", R.drawable.jpeg_icon);
-		formats.put(".doc", R.drawable.docx_icon);
-		formats.put(".docx", R.drawable.docx_icon);
-		formats.put(".png", R.drawable.png_icon);
-		formats.put(".pdf", R.drawable.pdf_icon);
-		formats.put(".txt", R.drawable.txt_icon);	
-		
-		final int folderImg = R.drawable.folder;
+		Map<String, Integer> drawableList = new HashMap<String, Integer>();
+		drawableList.put(".jpg", R.drawable.jpg);
+		drawableList.put(".jpeg", R.drawable.jpeg);
+        drawableList.put(".png", R.drawable.png);
+        drawableList.put(".gif", R.drawable.gif);
+
+		drawableList.put(".doc", R.drawable.doc);
+		drawableList.put(".docx", R.drawable.docx);
+        drawableList.put(".ppt", R.drawable.ppt);
+        drawableList.put(".pptx", R.drawable.pptx);
+
+		drawableList.put(".pdf", R.drawable.pdf);
+		drawableList.put(".txt", R.drawable.txt);
+        drawableList.put(".exe", R.drawable.exe);
+		drawableList.put(".mp3", R.drawable.mp3);
+		drawableList.put(".mp4", R.drawable.mp4);
+        drawableList.put(".psd", R.drawable.psd);
+		drawableList.put(".rar", R.drawable.rar);
+		drawableList.put(".zip", R.drawable.zip);
 		
 		// packing data into structure for adapter
 		ArrayList<Map<String, Object>> data = new ArrayList<Map<String, Object>>(fileList.size());
@@ -115,13 +132,13 @@ public class ExplorerActivity extends Activity {
 			itemMap.put(ATTRIBUTE_NAME_TITLE, name);
 			
 			if(type.equals("folder")) {
-				itemMap.put(ATTRIBUTE_NAME_IMAGE, folderImg);
+				itemMap.put(ATTRIBUTE_NAME_IMAGE, R.drawable.folder);
 			}
 			else if(type.equals("file")) {
 				String fileType = name.toLowerCase().substring(name.lastIndexOf("."), name.length());
-				Integer format = formats.get(fileType);
+				Integer format = drawableList.get(fileType);
 				if(format == null)
-					format = R.drawable.default_icon;
+					format = R.drawable.blank;
 				itemMap.put(ATTRIBUTE_NAME_IMAGE, format);
 			}
 			data.add(itemMap);

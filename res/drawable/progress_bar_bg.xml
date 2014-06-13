@@ -37,7 +37,7 @@
                 android:shape="oval"
                 android:useLevel="false">
                 <solid android:color="@color/app_bg"/>
-                </shape>
+            </shape>
         </rotate>
     </item>
 </layer-list>

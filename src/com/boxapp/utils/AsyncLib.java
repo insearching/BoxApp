@@ -326,42 +326,21 @@ public final class AsyncLib {
 
     private void getFolderItems(String json) {
         JSONObject data;
-        String name = null;
-        String type = null;
-        String id = null;
         ArrayList<FileInfo> fileList = new ArrayList<FileInfo>();
         try {
             data = new JSONObject(json).getJSONObject(KeyMap.ITEM_COLLECTION);
             JSONArray files = data.getJSONArray(KeyMap.ENTRIES);
             int fileCount = files.length();
-            JSONObject text = null;
             for (int i = 0; i < fileCount; i++) {
-                text = files.getJSONObject(i);
-                name = text.getString(KeyMap.NAME);
-                type = text.getString(KeyMap.TYPE);
-                id = text.getString(KeyMap.ID);
+                JSONObject text = files.getJSONObject(i);
+                String name = text.getString(KeyMap.NAME);
+                String type = text.getString(KeyMap.TYPE);
+                String id = text.getString(KeyMap.ID);
                 FileInfo fi = new FileInfo(name, type, id);
                 fileList.add(fi);
                 MainActivity.fileList = fileList;
             }
             displayFileStructure(fileList);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void getFileName(String json) {
-        JSONObject data;
-        String name = null;
-        ArrayList<FileInfo> fileList = new ArrayList<FileInfo>();
-        try {
-            data = new JSONObject(json).getJSONObject(KeyMap.ITEM_COLLECTION);
-            JSONArray files = data.getJSONArray(KeyMap.ENTRIES);
-            int fileCount = files.length();
-            JSONObject text = null;
-            for (int i = 0; i < fileCount; i++) {
-                name = text.getString(KeyMap.NAME);
-            }
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -381,18 +360,25 @@ public final class AsyncLib {
 
         isSameFolder = !isSameFolder;
 
-        Map<String, Integer> formats = new HashMap<String, Integer>();
-        formats.put(KeyMap.JPG, R.drawable.jpeg_icon);
-        formats.put(KeyMap.JPEG, R.drawable.jpeg_icon);
-        formats.put(KeyMap.DOC, R.drawable.docx_icon);
-        formats.put(KeyMap.DOCX, R.drawable.docx_icon);
-        formats.put(KeyMap.PNG, R.drawable.png_icon);
-        formats.put(KeyMap.PDF, R.drawable.pdf_icon);
-        formats.put(KeyMap.TXT, R.drawable.txt_icon);
+        Map<String, Integer> drawableList = new HashMap<String, Integer>();
+        drawableList.put(".jpg", R.drawable.jpg);
+        drawableList.put(".jpeg", R.drawable.jpeg);
+        drawableList.put(".png", R.drawable.png);
+        drawableList.put(".gif", R.drawable.gif);
 
-        final int folderImg = R.drawable.folder;
-        final int not_downloaded = R.drawable.non_downloaded;
-        final int downloaded = R.drawable.file_downloaded;
+        drawableList.put(".doc", R.drawable.doc);
+        drawableList.put(".docx", R.drawable.docx);
+        drawableList.put(".ppt", R.drawable.ppt);
+        drawableList.put(".pptx", R.drawable.pptx);
+
+        drawableList.put(".pdf", R.drawable.pdf);
+        drawableList.put(".txt", R.drawable.txt);
+        drawableList.put(".exe", R.drawable.exe);
+        drawableList.put(".mp3", R.drawable.mp3);
+        drawableList.put(".mp4", R.drawable.mp4);
+        drawableList.put(".psd", R.drawable.psd);
+        drawableList.put(".rar", R.drawable.rar);
+        drawableList.put(".zip", R.drawable.zip);
 
         // packing data into structure for adapter
         ArrayList<Map<String, Object>> data = new ArrayList<Map<String, Object>>(fileList.size());
@@ -406,16 +392,16 @@ public final class AsyncLib {
             itemMap.put(ATTRIBUTE_NAME_TITLE, name);
 
             if (type.equals(KeyMap.FOLDER)) {
-                itemMap.put(ATTRIBUTE_NAME_IMAGE, folderImg);
+                itemMap.put(ATTRIBUTE_NAME_IMAGE, R.drawable.folder);
             } else if (type.equals(KeyMap.FILE)) {
                 String fileType = null;
                 Integer format = null;
                 if (name.contains(".")) {
                     fileType = name.toLowerCase().substring(name.lastIndexOf("."), name.length());
-                    format = formats.get(fileType);
+                    format = drawableList.get(fileType);
                 }
                 if (format == null)
-                    format = R.drawable.default_icon;
+                    format = R.drawable.blank;
                 itemMap.put(ATTRIBUTE_NAME_IMAGE, format);
             }
 
@@ -423,9 +409,9 @@ public final class AsyncLib {
                 itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, null);
             } else if (type.equals(KeyMap.FILE)) {
                 if (isFileOnDevice(name, ident, i)) {
-                    itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, downloaded);
+                    itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.file_downloaded);
                 } else {
-                    itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, not_downloaded);
+                    itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.non_downloaded);
                 }
             }
             data.add(itemMap);
@@ -517,8 +503,7 @@ public final class AsyncLib {
             in.close();
             out.close();
         } catch (FileNotFoundException ex) {
-            String x = ex.getMessage();
-            Log.d("File copy", x);
+            Log.d("File copy", ex.getMessage());
         } catch (IOException e) {
             Log.e(TAG, "IO error");
         }
