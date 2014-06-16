@@ -49,7 +49,7 @@ public class DownloadService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-
+        Log.d(TAG, "onCreate");
         if (android.os.Debug.isDebuggerConnected())
             android.os.Debug.waitForDebugger();
     }
@@ -98,9 +98,6 @@ public class DownloadService extends Service {
 
         @Override
         protected Integer doInBackground(String... param) {
-            String requestUrl = param[0];
-            String accessToken = param[1];
-            String ident = param[2];
             fileName = param[3];
             position = param[4];
             if (downloadListener != null)
@@ -108,8 +105,8 @@ public class DownloadService extends Service {
             Integer count, result = null;
             try {
                 HttpClient client = new DefaultHttpClient();
-                HttpGet get = new HttpGet(requestUrl);
-                get.setHeader("Authorization", "Bearer " + accessToken);
+                HttpGet get = new HttpGet(param[0]);
+                get.setHeader("Authorization", "Bearer " + param[1]);
                 HttpResponse responseGet = client.execute(get);
                 result = responseGet.getStatusLine().getStatusCode();
                 if (result == 200) {
@@ -140,7 +137,7 @@ public class DownloadService extends Service {
                         output.close();
                         input.close();
                         // saving data about file
-                        saveFileData(mContext, fileName, ident);
+                        saveFileData(mContext, fileName, param[2]);
                     }
                 }
             } catch (Exception e) {

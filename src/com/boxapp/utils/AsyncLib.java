@@ -71,8 +71,11 @@ public final class AsyncLib {
     private ListView mFileListView;
     private RelativeLayout mProgressLayout;
     private LinearLayout mTopMenu;
-    private DownloadService mService;
+
     private boolean isSameFolder = true;
+
+    private DownloadService mDownloadService;
+    private UploadService mUploadService;
 
     public AsyncLib(Context context, String accessToken, String refreshToken) {
         mContext = context;
@@ -97,13 +100,13 @@ public final class AsyncLib {
         ServiceConnection sConn = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder binder) {
-                mService = ((DownloadService.FileDownloadBinder) binder).getService();
-                mService.attachListener(mContext);
+                mDownloadService = ((DownloadService.FileDownloadBinder) binder).getService();
+                mDownloadService.attachListener(mContext);
             }
 
             @Override
             public void onServiceDisconnected(ComponentName name) {
-                mService = null;
+                mDownloadService = null;
             }
         };
         Intent intent = new Intent(mContext, DownloadService.class)
@@ -113,13 +116,34 @@ public final class AsyncLib {
                 .putExtra(KeyMap.FILE_NAME, fileName)
                 .putExtra(KeyMap.POSITION, position)
                 .putExtra(KeyMap.PATH, extStoragePath);
+
         mContext.bindService(intent, sConn, Context.BIND_AUTO_CREATE);
         mContext.startService(intent);
     }
 
-    public void uploadFile(String requestUrl, String folder_id, String path) {
-        UploadData upload = new UploadData();
-        upload.execute(requestUrl, folder_id, path);
+    public void uploadFile(String requestUrl, String folderId, String path) {
+        ServiceConnection sConn = new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder binder) {
+                mUploadService = ((UploadService.FileUploaddBinder) binder).getService();
+                mUploadService.attachListener(mContext);
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+                mUploadService = null;
+            }
+        };
+
+        Intent intent = new Intent(mContext, UploadService.class)
+                .putExtra(KeyMap.REQUEST_URL, requestUrl)
+                .putExtra(KeyMap.ACCESS_TOKEN, mAccessToken)
+                .putExtra(KeyMap.FOLDER, folderId)
+                .putExtra(KeyMap.PATH, path);
+
+        mContext.bindService(intent, sConn, Context.BIND_AUTO_CREATE);
+        mContext.startService(intent);
+
     }
 
     public void renameItem(String requestUrl, String data,
@@ -385,19 +409,17 @@ public final class AsyncLib {
         Map<String, Object> itemMap;
         for (int i = 0; i < fileList.size(); i++) {
             itemMap = new HashMap<String, Object>();
-            FileInfo fi = (FileInfo) fileList.get(i);
-            String name = fi.getName();
-            String type = fi.getType();
-            String ident = fi.getId();
+            FileInfo info = fileList.get(i);
+            String name = info.getName();
+            String type = info.getType();
             itemMap.put(ATTRIBUTE_NAME_TITLE, name);
 
             if (type.equals(KeyMap.FOLDER)) {
                 itemMap.put(ATTRIBUTE_NAME_IMAGE, R.drawable.folder);
             } else if (type.equals(KeyMap.FILE)) {
-                String fileType = null;
                 Integer format = null;
                 if (name.contains(".")) {
-                    fileType = name.toLowerCase().substring(name.lastIndexOf("."), name.length());
+                    String fileType = name.toLowerCase().substring(name.lastIndexOf("."), name.length());
                     format = drawableList.get(fileType);
                 }
                 if (format == null)
@@ -408,7 +430,7 @@ public final class AsyncLib {
             if (type.equals(KeyMap.FOLDER)) {
                 itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, null);
             } else if (type.equals(KeyMap.FILE)) {
-                if (isFileOnDevice(name, ident, i)) {
+                if (isFileOnDevice(name, info.getId())) {
                     itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.file_downloaded);
                 } else {
                     itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.non_downloaded);
@@ -447,13 +469,13 @@ public final class AsyncLib {
         }
     }
 
-    private boolean isFileOnDevice(String name, String ident, final int num) {
+    private boolean isFileOnDevice(String name, String ident) {
         boolean result = false;
         File data = new File(extStoragePath + "/" + name);
         if (data.exists()) {
             SharedPreferences downloadPrefs = mContext.getSharedPreferences(KeyMap.DOWNLOADED_FILES, Context.MODE_MULTI_PROCESS);
-            String _name = downloadPrefs.getString(ident, null);
-            if (_name != null && _name.equals(name)) {
+            String recordedName = downloadPrefs.getString(ident, null);
+            if (recordedName != null && recordedName.equals(name)) {
                 result = true;
             }
         }
@@ -469,32 +491,24 @@ public final class AsyncLib {
      * @return FileInfo object with info about file
      */
     private static FileInfo findObject(String json, int number) {
-        FileInfo fi = null;
-        String name = null;
-        String type = null;
-        String id = null;
-        String etag = null;
         try {
             JSONArray files = new JSONObject(json).getJSONArray("entries");
-            JSONObject text = null;
-            text = files.getJSONObject(number);
-            name = text.getString(KeyMap.NAME);
-            type = text.getString(KeyMap.TYPE);
-            id = text.getString(KeyMap.ID);
-            etag = text.getString(KeyMap.ETAG);
-            fi = new FileInfo(name, type, id, etag);
+            JSONObject text = files.getJSONObject(number);
+            String name = text.getString(KeyMap.NAME);
+            String type = text.getString(KeyMap.TYPE);
+            String id = text.getString(KeyMap.ID);
+            String etag = text.getString(KeyMap.ETAG);
+            return new FileInfo(name, type, id, etag);
         } catch (JSONException e) {
             Log.e(TAG, e.getMessage());
+            return null;
         }
-        return fi;
     }
 
     private static void copyFileOnDevice(String srcPath, String destPath) {
         try {
-            File srcFile = new File(srcPath);
-            File destFile = new File(destPath);
-            InputStream in = new FileInputStream(srcFile);
-            OutputStream out = new FileOutputStream(destFile);
+            InputStream in = new FileInputStream(new File(srcPath));
+            OutputStream out = new FileOutputStream(new File(destPath));
             byte[] buf = new byte[4096];
             int len;
             while ((len = in.read(buf)) > 0) {
@@ -706,7 +720,6 @@ public final class AsyncLib {
         @Override
         protected Integer doInBackground(String... param) {
             Integer result = 0;
-            String json = null;
             String requestUrl = param[0];
             String folder_id = param[1];
             String path = param[2];
@@ -725,11 +738,9 @@ public final class AsyncLib {
                 if (result == 201) {
                     HttpEntity resEntityPost = response.getEntity();
                     if (resEntityPost != null) {
-                        json = EntityUtils.toString(resEntityPost);
-                        FileInfo fi = findObject(json, 0);
-                        String fileName = fi.getName();
-                        String ident = fi.getId();
-                        saveFileData(ident, fileName);
+                        FileInfo info = findObject(EntityUtils.toString(resEntityPost), 0);
+                        String fileName = info.getName();
+                        saveFileData(info.getId(), fileName);
                         if (!path.equals(extStoragePath + "/" + fileName)) {
                             copyFileOnDevice(path, extStoragePath + "/" + fileName);
                         }

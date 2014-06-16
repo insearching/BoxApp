@@ -23,7 +23,6 @@ import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.graphics.Typeface;
 import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -49,6 +48,7 @@ import android.widget.Toast;
 
 import com.boxapp.utils.AsyncLib;
 import com.boxapp.utils.BoxWidgetProvider;
+import com.boxapp.utils.Credentials;
 import com.boxapp.utils.FileInfo;
 import com.boxapp.utils.FileListAdapter;
 import com.boxapp.utils.KeyMap;
@@ -61,7 +61,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Map;
 
-public final class MainActivity extends Activity implements DownloadListener {
+public final class MainActivity extends Activity implements DownloadListener, UploadListener {
     public static String jsonQuery = null;
     public static final String FILE_NAME = "filename";
     public static ArrayList<FileInfo> fileList = new ArrayList<FileInfo>();
@@ -77,9 +77,7 @@ public final class MainActivity extends Activity implements DownloadListener {
 
     private final String EXT_STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/BoxApp";
     private static final String TAG = "BoxAppLog";
-    //Request URLs
-    private static final String ROOT_URL = "https://api.box.com/2.0/";
-    private static final String UPLOAD_URL = "https://upload.box.com/api/2.0/files/content";
+
     //Context menu items
     private static final int OPEN = Menu.FIRST;
     private static final int COPY = Menu.FIRST + 1;
@@ -129,7 +127,7 @@ public final class MainActivity extends Activity implements DownloadListener {
                     || mRefreshToken.length() < 64) {
                 task.authorize();
             } else {
-                task.getData(ROOT_URL + "folders/", mCurDirId, folderList);
+                task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, folderList);
             }
         } else {
             Toast.makeText(MainActivity.this, "No internet connection." +
@@ -155,7 +153,7 @@ public final class MainActivity extends Activity implements DownloadListener {
                             v.findViewById(R.id.progressBar).setVisibility(View.VISIBLE);
                             v.findViewById(R.id.download_status).setVisibility(View.INVISIBLE);
 
-                            task.downloadFile(ROOT_URL + "files/" + ident + "/content",
+                            task.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content",
                                     ident, name, String.valueOf(position));
                         }
                     } catch (Exception e) {
@@ -232,7 +230,7 @@ public final class MainActivity extends Activity implements DownloadListener {
 
             case (PASTE):
                 isFolderChanged = true;
-                String url = ROOT_URL + mCopyType + "s/" + mCopyId + "/copy";
+                String url = Credentials.ROOT_URL + mCopyType + "s/" + mCopyId + "/copy";
                 String data = "{\"parent\": {\"id\" : " + ident + "}}";
                 mCopyId = null;
                 itemPaste.setVisible(false);
@@ -242,17 +240,17 @@ public final class MainActivity extends Activity implements DownloadListener {
             case (DELETE):
                 if (type.equals("file")) {
                     isFolderChanged = true;
-                    task.deleteData(ROOT_URL + "files/" + ident, etag);
+                    task.deleteData(Credentials.ROOT_URL + "files/" + ident, etag);
                 } else if (type.equals("folder")) {
                     isFolderChanged = true;
-                    task.deleteData(ROOT_URL + "folders/" + ident + "?recursive=true");
+                    task.deleteData(Credentials.ROOT_URL + "folders/" + ident + "?recursive=true");
                 }
                 return true;
 
             case (DOWNLOAD):
                 if (type.equals("file")) {
                     isFolderChanged = true;
-                    task.downloadFile(ROOT_URL + "files/" + ident + "/content",
+                    task.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content",
                             ident, name, String.valueOf(index));
                 }
                 return true;
@@ -296,7 +294,7 @@ public final class MainActivity extends Activity implements DownloadListener {
                 break;
 
             case (PASTE_OPTION):
-                String url = ROOT_URL + mCopyType + "s/" + mCopyId + "/copy";
+                String url = Credentials.ROOT_URL + mCopyType + "s/" + mCopyId + "/copy";
                 String data = null;
                 if (containsSameName(mCopyName)) {
                     String[] arr = mCopyName.split("\\.");
@@ -337,7 +335,7 @@ public final class MainActivity extends Activity implements DownloadListener {
         super.onActivityResult(requestCode, resultCode, data);
         if (data != null) {
             String path = data.getStringExtra("path");
-            task.uploadFile(UPLOAD_URL, mCurDirId, path);
+            task.uploadFile(Credentials.UPLOAD_URL, mCurDirId, path);
         }
     }
 
@@ -415,7 +413,7 @@ public final class MainActivity extends Activity implements DownloadListener {
 
                     public void onClick(DialogInterface dialog, int id) {
                         String folderName = folderNameEdit.getText().toString();
-                        task.createItem(ROOT_URL + "folders/", "{\"name\":\"" + folderName + "\", \"parent\": " +
+                        task.createItem(Credentials.ROOT_URL + "folders/", "{\"name\":\"" + folderName + "\", \"parent\": " +
                                 "{\"id\": \"" + mCurDirId + "\"}}");
                     }
                 })
@@ -449,7 +447,7 @@ public final class MainActivity extends Activity implements DownloadListener {
 
                     public void onClick(DialogInterface dialog, int id) {
                         String newName = folderNameEdit.getText().toString();
-                        task.renameItem(ROOT_URL + type + "s/" + ident, "{\"name\":\"" + newName + "\"}",
+                        task.renameItem(Credentials.ROOT_URL + type + "s/" + ident, "{\"name\":\"" + newName + "\"}",
                                 name, newName, ident);
                     }
                 })
@@ -479,7 +477,7 @@ public final class MainActivity extends Activity implements DownloadListener {
                 TextView pathClicked = (TextView) v;
                 updatePathList(pathClicked);
                 mCurDirId = ident;
-                task.getData(ROOT_URL + "folders/", mCurDirId, folderList);
+                task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, folderList);
             }
         });
         folderList.add(pathView);
@@ -499,7 +497,7 @@ public final class MainActivity extends Activity implements DownloadListener {
         mCurDirId = folderId;
         mCurDirName = folderName;
         addPathButton(mCurDirName, mCurDirId);
-        task.getData(ROOT_URL + "folders/", mCurDirId, folderList);
+        task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, folderList);
     }
 
     private void openFile(String name) {
@@ -515,26 +513,22 @@ public final class MainActivity extends Activity implements DownloadListener {
         File data = new File(EXT_STORAGE_PATH + "/" + name);
         if(!data.exists())
             return false;
-        SharedPreferences userDetails = getSharedPreferences("downloaded_files", MODE_PRIVATE);
+        SharedPreferences userDetails = getSharedPreferences(KeyMap.DOWNLOADED_FILES, MODE_PRIVATE);
         Map<String, ?> idList = userDetails.getAll();
         String curName = (String) idList.get(ident);
-        return (curName != null && curName.equals(name)) ? true : false;
+        return curName != null && curName.equals(name);
     }
 
     private boolean isNetworkConnected() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo ni = cm.getActiveNetworkInfo();
-        if (ni == null)
-            return false;
-        else
-            return true;
+        return cm.getActiveNetworkInfo() != null;
     }
 
     @Override
     public void onDownloadStarted(String name) {
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra("status", getString(R.string.downloading) + " " + name);
-        getApplicationContext().sendBroadcast(intent);
+        intent.putExtra(KeyMap.STATUS, getString(R.string.downloading) + " " + name);
+        sendBroadcast(intent);
     }
 
     @Override
@@ -545,16 +539,31 @@ public final class MainActivity extends Activity implements DownloadListener {
             adapter.notifyDataSetChanged();
         }
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra("status", name + " " + getString(R.string.downloaded));
-        getApplicationContext().sendBroadcast(intent);
+        intent.putExtra(KeyMap.STATUS, name + " " + getString(R.string.downloaded));
+        sendBroadcast(intent);
+    }
+
+    @Override
+    public void onUploadStarted(String name) {
+        Toast.makeText(this, "Starting uploading " + name, Toast.LENGTH_LONG).show();
     }
 
     @Override
     public void onProgressChanged(Integer progress, String name) {
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra("status", getString(R.string.downloading) + " " + name);
-        intent.putExtra("progress", progress);
-        getApplicationContext().sendBroadcast(intent);
+        intent.putExtra(KeyMap.STATUS, getString(R.string.downloading) + " " + name);
+        intent.putExtra(KeyMap.PROGRESS, progress);
+        sendBroadcast(intent);
+    }
+
+    @Override
+    public void onUploadCompleted(String name) {
+        Toast.makeText(this, "Uploading finished " + name, Toast.LENGTH_LONG).show();
+    }
+
+    @Override
+    public void onUploadFailed(int code) {
+        Toast.makeText(this, "Uploading failed " + code, Toast.LENGTH_LONG).show();
     }
 
 }

@@ -42,5 +42,6 @@ public class KeyMap {
     public static final String FILE_ID = "file_id";
     public static final String ETAG = "etag";
     public static final String PATH = "path";
-
+    public static final String STATUS = "status";
+    public static final String PROGRESS = "progress";
 }
