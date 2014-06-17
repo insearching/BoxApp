@@ -75,7 +75,7 @@ public class UploadService extends Service {
      * @param[2] - the ID of folder where this file should be uploaded
      * @param[3] - the path to file which has to be uploaded
      */
-    class UploadFileTask extends AsyncTask<String, Void, HttpResponse> {
+    class UploadFileTask extends AsyncTask<String, Void, FileUploadResponse> {
 
         private int startId;
 
@@ -89,51 +89,80 @@ public class UploadService extends Service {
         }
 
         @Override
-        protected HttpResponse doInBackground(String... param) {
+        protected FileUploadResponse doInBackground(String... param) {
             HttpResponse response = null;
             String path = param[3];
+            FileUploadResponse uploadResponse = null;
 
             File file = new File(path);
             HttpClient client = new DefaultHttpClient();
             HttpPost post = new HttpPost(param[0]);
             try {
                 post.setHeader("Authorization", "Bearer " + param[1]);
-                MultipartEntity entity = new MultipartEntity();
-                entity.addPart(KeyMap.FILE_ID, new StringBody(param[2]));
-                entity.addPart(KeyMap.FILE_NAME, new FileBody(file));
-                post.setEntity(entity);
+                MultipartEntity multiEntity = new MultipartEntity();
+                multiEntity.addPart(KeyMap.PARENT_ID, new StringBody(param[2]));
+                multiEntity.addPart(KeyMap.FILE, new FileBody(file));
+                post.setEntity(multiEntity);
 
                 response = client.execute(post);
+                HttpEntity responseEntity = response.getEntity();
+
+                int result = response.getStatusLine().getStatusCode();
+                uploadResponse = new FileUploadResponse(result);
+                if (responseEntity != null && result == 201) {
+                    try {
+                        uploadResponse.setInfo(findObject(EntityUtils.toString(responseEntity), 0));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
             } catch (ClientProtocolException e) {
                 Log.e(TAG, e.getMessage());
             } catch (IOException e) {
                 Log.e(TAG, e.getMessage());
             }
-            return response;
+            return uploadResponse;
         }
 
         @Override
-        protected void onPostExecute(HttpResponse response) {
+        protected void onPostExecute(FileUploadResponse response) {
             super.onPostExecute(response);
-            int result = response.getStatusLine().getStatusCode();
-            if (result == 201) {
-
-                HttpEntity resEntityPost = response.getEntity();
-                if (resEntityPost != null) {
-                    try {
-                        FileInfo info = findObject(EntityUtils.toString(resEntityPost), 0);
-                        String fileName = info.getName();
-                        uploadListener.onUploadCompleted(fileName);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
-                }
+            int result = response.getStatusCode();
+            if (response.getInfo() != null) {
+                FileInfo info = response.getInfo();
+                String fileName = info.getName();
+                uploadListener.onUploadCompleted(fileName);
             } else {
                 uploadListener.onUploadFailed(result);
             }
             stopSelf(startId);
         }
+    }
+
+
+    class FileUploadResponse {
+
+        private int statusCode;
+        private FileInfo info;
+
+        FileUploadResponse(int statusCode) {
+            this.statusCode = statusCode;
+            info = null;
+        }
+
+        public FileInfo getInfo() {
+            return info;
+        }
+
+        public int getStatusCode() {
+            return statusCode;
+        }
+
+        public void setInfo(FileInfo info) {
+            this.info = info;
+        }
+
     }
 
     /**
