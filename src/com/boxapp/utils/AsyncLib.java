@@ -5,11 +5,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
-import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Environment;
 import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
@@ -22,6 +18,9 @@ import android.widget.Toast;
 import com.boxapp.BoxLoginActivity;
 import com.boxapp.MainActivity;
 import com.boxapp.R;
+import com.boxapp.entity.FileInfo;
+import com.boxapp.service.DownloadService;
+import com.boxapp.service.UploadService;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -34,9 +33,6 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
@@ -45,13 +41,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -72,10 +62,9 @@ public final class AsyncLib {
     private RelativeLayout mProgressLayout;
     private LinearLayout mTopMenu;
 
-    private boolean isSameFolder = true;
-
     private DownloadService mDownloadService;
     private UploadService mUploadService;
+    private FileHelper mFileHelper;
 
     public AsyncLib(Context context, String accessToken, String refreshToken) {
         mContext = context;
@@ -85,8 +74,8 @@ public final class AsyncLib {
         mFileListView = (ListView) ((Activity) mContext).findViewById(R.id.fileListView);
         mProgressLayout = (RelativeLayout) ((Activity) mContext).findViewById(R.id.loadFilesProgress);
         mTopMenu = (LinearLayout) ((Activity) mContext).findViewById(R.id.pathLayout);
-
-        extStoragePath = Environment.getExternalStorageDirectory().getPath() + "/" + mContext.getString(R.string.app_name);
+        extStoragePath = KeyMap.EXT_STORAGE_PATH;
+        mFileHelper = new FileHelper(mContext);
     }
 
     public void getData(String requestUrl, String curDir, ArrayList<TextView> folderList) {
@@ -148,12 +137,12 @@ public final class AsyncLib {
 
     public void renameItem(String requestUrl, String data,
                            String oldName, String newName, String ident) {
-        PutData put = new PutData();
+        UpdateData put = new UpdateData();
         put.execute(requestUrl, data, oldName, newName, ident);
     }
 
     public void createItem(String requestUrl, String data) {
-        PostData post = new PostData();
+        CreateData post = new CreateData();
         post.execute(requestUrl, data);
     }
 
@@ -184,7 +173,7 @@ public final class AsyncLib {
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
             if (result == 401) {
-                GNATAfterGetData gnat = new GNATAfterGetData();
+                GetAccsesTokenTask gnat = new GetAccsesTokenTask();
                 gnat.execute(Credentials.SERVICE_REQUEST_URL);
             } else if (result >= 200 || result <= 210) {
                 mProgressLayout.setVisibility(View.INVISIBLE);
@@ -211,7 +200,7 @@ public final class AsyncLib {
      *
      * @param[0] - service request URL
      */
-    class GetAccessToken extends AsyncTask<String, String, Integer> {
+    class GetAccsesTokenTask extends AsyncTask<String, String, Integer> {
         String responseStr = null;
 
         @Override
@@ -251,16 +240,8 @@ public final class AsyncLib {
             } else if (result == 200) {
                 mAccessToken = getToken(responseStr, KeyMap.ACCESS_TOKEN);
                 mRefreshToken = getToken(responseStr, KeyMap.REFRESH_TOKEN);
-                recordPreferences(mAccessToken, mRefreshToken);
-            }
-        }
-    }
+                mFileHelper.recordPreferences(mAccessToken, mRefreshToken);
 
-    class GNATAfterGetData extends GetAccessToken {
-        @Override
-        protected void onPostExecute(Integer result) {
-            super.onPostExecute(result);
-            if (result == 200) {
                 GetData gd = new GetData();
                 gd.execute(Credentials.ROOT_URL + "folders/" + mCurDirId);
             }
@@ -274,12 +255,10 @@ public final class AsyncLib {
      */
     public void authorize() {
         String response_type = "code";
-        Uri uri = Uri.parse(Credentials.AUTH_URL + "?response_type=" + response_type + "&client_id=" + Credentials.CLIENT_ID);
         Intent intent = new Intent(mContext, BoxLoginActivity.class);
         intent.putExtra(KeyMap.REQUEST_URL, Credentials.AUTH_URL + "?response_type=" + response_type + "&client_id=" + Credentials.CLIENT_ID);
         mContext.startActivity(intent);
         ((MainActivity)mContext).finish();
-        //System.exit(0);
     }
 
     /**
@@ -299,15 +278,6 @@ public final class AsyncLib {
             Log.e(TAG, e.getMessage());
         }
         return token;
-    }
-
-    private void recordPreferences(String access_token, String refresh_token) {
-        SharedPreferences userPrefs = mContext.getSharedPreferences(KeyMap.USER_DETAILS, Context.MODE_PRIVATE);
-        Editor edit = userPrefs.edit();
-        edit.clear();
-        edit.putString(KeyMap.ACCESS_TOKEN, access_token.trim());
-        edit.putString(KeyMap.REFRESH_TOKEN, refresh_token.trim());
-        edit.commit();
     }
 
     /**
@@ -362,7 +332,6 @@ public final class AsyncLib {
                 String id = text.getString(KeyMap.ID);
                 FileInfo fi = new FileInfo(name, type, id);
                 fileList.add(fi);
-                MainActivity.fileList = fileList;
             }
             displayFileStructure(fileList);
         } catch (JSONException e) {
@@ -382,7 +351,6 @@ public final class AsyncLib {
         final String ATTRIBUTE_NAME_DOWNLOADED = "status";
         final String ATTRIBUTE_NAME_IMAGE = "image";
 
-        isSameFolder = !isSameFolder;
 
         Map<String, Integer> drawableList = new HashMap<String, Integer>();
         drawableList.put(".jpg", R.drawable.jpg);
@@ -404,7 +372,6 @@ public final class AsyncLib {
         drawableList.put(".rar", R.drawable.rar);
         drawableList.put(".zip", R.drawable.zip);
 
-        // packing data into structure for adapter
         ArrayList<Map<String, Object>> data = new ArrayList<Map<String, Object>>(fileList.size());
         Map<String, Object> itemMap;
         for (int i = 0; i < fileList.size(); i++) {
@@ -430,7 +397,7 @@ public final class AsyncLib {
             if (type.equals(KeyMap.FOLDER)) {
                 itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, null);
             } else if (type.equals(KeyMap.FILE)) {
-                if (isFileOnDevice(name, info.getId())) {
+                if (mFileHelper.isFileOnDevice(name, info.getId(), extStoragePath)) {
                     itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.file_downloaded);
                 } else {
                     itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.non_downloaded);
@@ -448,7 +415,6 @@ public final class AsyncLib {
      * Shows directory buttons
      */
     private void displayPathButtons() {
-        // Add path buttons to navigate
         mTopMenu.removeAllViewsInLayout();
         for (int i = 0; i < mFolderList.size(); i++)
             mTopMenu.addView(mFolderList.get(i));
@@ -460,94 +426,13 @@ public final class AsyncLib {
     class DeleteData extends AsyncGetData {
         @Override
         protected Integer doInBackground(String... param) {
-            Integer result = 0;
+            Integer result = null;
             if (param.length == 2)
                 result = deleteFile(param[0], param[1]);
             else
-                result = deleteDir(param[0]);
+                result = deleteDirectory(param[0]);
             return result;
         }
-    }
-
-    private boolean isFileOnDevice(String name, String ident) {
-        boolean result = false;
-        File data = new File(extStoragePath + "/" + name);
-        if (data.exists()) {
-            SharedPreferences downloadPrefs = mContext.getSharedPreferences(KeyMap.DOWNLOADED_FILES, Context.MODE_MULTI_PROCESS);
-            String recordedName = downloadPrefs.getString(ident, null);
-            if (recordedName != null && recordedName.equals(name)) {
-                result = true;
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Gets info about file or folder, without array
-     * in JSON query.
-     *
-     * @param json   JSON data got from response
-     * @param number number of file or folder in JSON
-     * @return FileInfo object with info about file
-     */
-    private static FileInfo findObject(String json, int number) {
-        try {
-            JSONArray files = new JSONObject(json).getJSONArray("entries");
-            JSONObject text = files.getJSONObject(number);
-            String name = text.getString(KeyMap.NAME);
-            String type = text.getString(KeyMap.TYPE);
-            String id = text.getString(KeyMap.ID);
-            String etag = text.getString(KeyMap.ETAG);
-            return new FileInfo(name, type, id, etag);
-        } catch (JSONException e) {
-            Log.e(TAG, e.getMessage());
-            return null;
-        }
-    }
-
-    private static void copyFileOnDevice(String srcPath, String destPath) {
-        try {
-            InputStream in = new FileInputStream(new File(srcPath));
-            OutputStream out = new FileOutputStream(new File(destPath));
-            byte[] buf = new byte[4096];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                out.write(buf, 0, len);
-            }
-            in.close();
-            out.close();
-        } catch (FileNotFoundException ex) {
-            Log.d("File copy", ex.getMessage());
-        } catch (IOException e) {
-            Log.e(TAG, "IO error");
-        }
-    }
-
-    /**
-     * Saves file id and file name when file is downloaded
-     * of uploaded (exists on device)
-     *
-     * @param ident of file
-     * @param name  of file
-     */
-    private void saveFileData(String ident, String name) {
-        SharedPreferences downloadPrefs = mContext.getSharedPreferences(KeyMap.DOWNLOADED_FILES, Context.MODE_MULTI_PROCESS);
-        Editor edit = downloadPrefs.edit();
-        edit.putString(ident, name);
-        edit.commit();
-    }
-
-    /**
-     * Deletes file info from shared preferences when
-     * file deleting from device
-     *
-     * @param ident of file to delete
-     */
-    private void deleteFileData(String ident) {
-        SharedPreferences downloadPrefs = mContext.getSharedPreferences(KeyMap.DOWNLOADED_FILES, Context.MODE_MULTI_PROCESS);
-        Editor edit = downloadPrefs.edit();
-        edit.remove(ident);
-        edit.commit();
     }
 
     /**
@@ -569,7 +454,7 @@ public final class AsyncLib {
             if (result == 204) {
                 String files = "files/";
                 String ident = requestUrl.substring(requestUrl.indexOf(files) + files.length());
-                deleteFileData(ident);
+                mFileHelper.deleteFileData(ident);
             }
         } catch (Exception e) {
             Log.e(TAG, e.getMessage());
@@ -582,14 +467,13 @@ public final class AsyncLib {
      *
      * @param - requestUrl, URL to make a request
      */
-    public Integer deleteDir(String requestUrl) {
+    public Integer deleteDirectory(String requestUrl) {
         Integer result = 0;
-        HttpClient http = new DefaultHttpClient();
+        HttpClient client = new DefaultHttpClient();
         HttpDelete delete = new HttpDelete(requestUrl);
         try {
-            HttpResponse response = null;
             delete.setHeader("Authorization", "Bearer " + mAccessToken);
-            response = http.execute(delete);
+            HttpResponse response = client.execute(delete);
             result = response.getStatusLine().getStatusCode();
         } catch (Exception e) {
             Log.e(TAG, e.getMessage());
@@ -607,7 +491,7 @@ public final class AsyncLib {
      * @param[4] - newName
      * @param[5] - ident
      */
-    class PutData extends AsyncGetData {
+    class UpdateData extends AsyncGetData {
         String oldName = null;
         String newName = null;
         String ident = null;
@@ -625,9 +509,8 @@ public final class AsyncLib {
             HttpPut put = new HttpPut(requestUrl);
             try {
                 put.setEntity(new StringEntity(data));
-                HttpResponse response = null;
                 put.setHeader("Authorization", "Bearer " + accessToken);
-                response = client.execute(put);
+                HttpResponse response = client.execute(put);
                 result = response.getStatusLine().getStatusCode();
                 Log.i("RESULT RENAME", String.valueOf(result));
             } catch (Exception e) {
@@ -645,30 +528,9 @@ public final class AsyncLib {
             } else if (result == 200) {
                 Toast.makeText(mContext, "Item successfully have been renamed.",
                         Toast.LENGTH_LONG).show();
-                renameFileOnDevice(ident, oldName, newName);
+                mFileHelper.renameFileOnDevice(ident, oldName, newName, extStoragePath);
             }
         }
-    }
-
-    private boolean renameFileOnDevice(String ident, String oldName, String newName) {
-        SharedPreferences downloadPref = mContext.getSharedPreferences(KeyMap.DOWNLOADED_FILES, Context.MODE_MULTI_PROCESS);
-        Editor edit = downloadPref.edit();
-        Map<String, ?> idList = downloadPref.getAll();
-        if (idList.get(ident) != null) {
-            edit.putString(ident, newName);
-            edit.commit();
-        }
-
-        File dir = new File(extStoragePath);
-        if (dir.exists()) {
-            File from = new File(dir, oldName);
-            File to = new File(dir, newName);
-            if (from.exists()) {
-                from.renameTo(to);
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -677,13 +539,12 @@ public final class AsyncLib {
      * @param[0] - request URL
      * @param[1] - a raw data
      */
-    class PostData extends AsyncGetData {
+    class CreateData extends AsyncGetData {
         @Override
         protected Integer doInBackground(String... param) {
             String requestUrl = param[0];
             String data = param[1];
             Integer result = 0;
-            // Create a new HttpClient and Post Header
             HttpClient client = new DefaultHttpClient();
             HttpPost post = new HttpPost(requestUrl);
             try {
@@ -706,60 +567,6 @@ public final class AsyncLib {
                 Toast.makeText(mContext, "Item with the same name already exists.",
                         Toast.LENGTH_LONG).show();
             }
-        }
-    }
-
-    /**
-     * Upload file on service using HTTP-post method
-     *
-     * @param[0] - request URL
-     * @param[1] - the ID of folder where this file should be uploaded
-     * @param[2] - the path of the file to be uploaded
-     */
-    class UploadData extends AsyncGetData {
-        @Override
-        protected Integer doInBackground(String... param) {
-            Integer result = 0;
-            String requestUrl = param[0];
-            String folder_id = param[1];
-            String path = param[2];
-            File file = new File(path);
-            HttpClient client = new DefaultHttpClient();
-            HttpPost post = new HttpPost(requestUrl);
-            try {
-                post.setHeader("Authorization", "Bearer " + mAccessToken);
-                MultipartEntity entity = new MultipartEntity();
-                entity.addPart(KeyMap.FILE_ID, new StringBody(folder_id));
-                entity.addPart(KeyMap.FILE_NAME, new FileBody(file));
-                post.setEntity(entity);
-
-                HttpResponse response = client.execute(post);
-                result = response.getStatusLine().getStatusCode();
-                if (result == 201) {
-                    HttpEntity resEntityPost = response.getEntity();
-                    if (resEntityPost != null) {
-                        FileInfo info = findObject(EntityUtils.toString(resEntityPost), 0);
-                        String fileName = info.getName();
-                        saveFileData(info.getId(), fileName);
-                        if (!path.equals(extStoragePath + "/" + fileName)) {
-                            copyFileOnDevice(path, extStoragePath + "/" + fileName);
-                        }
-                    }
-                }
-            } catch (ClientProtocolException e) {
-                Log.e(TAG, e.getMessage());
-            } catch (IOException e) {
-                Log.e(TAG, e.getMessage());
-            }
-            return result;
-        }
-
-        @Override
-        protected void onPostExecute(Integer result) {
-            super.onPostExecute(result);
-            if (result == 400)
-                Toast.makeText(mContext, "Failed to upload file.",
-                        Toast.LENGTH_LONG).show();
         }
     }
 }

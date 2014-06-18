@@ -1,5 +1,7 @@
 package com.boxapp.utils;
 
+import android.os.Environment;
+
 /**
  * Created by insearching on 30.05.2014.
  */
@@ -15,17 +17,6 @@ public class KeyMap {
     public static final String CLIENT_SECRET = "client_secret";
     public static final String GRANT_TYPE = "grant_type";
     public static final String CODE = "code";
-
-
-    //Filetypes
-    public static final String JPG = ".jpg";
-    public static final String JPEG = ".jpeg";
-    public static final String DOC = ".doc";
-    public static final String DOCX = ".docx";
-    public static final String PNG = ".png";
-    public static final String PDF = ".pdf";
-    public static final String TXT = ".txt";
-
 
     //Cache files
     public static final String USER_DETAILS = "userdetails";
@@ -45,4 +36,6 @@ public class KeyMap {
     public static final String STATUS = "status";
     public static final String PROGRESS = "progress";
     public static final String PARENT_ID = "parent_id";
+
+    public static final String EXT_STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/BoxApp";
 }

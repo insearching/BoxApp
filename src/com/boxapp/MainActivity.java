@@ -25,7 +25,6 @@ import android.graphics.Typeface;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
 import android.text.SpannableString;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
@@ -46,10 +45,10 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.boxapp.entity.FileInfo;
 import com.boxapp.utils.AsyncLib;
 import com.boxapp.utils.BoxWidgetProvider;
 import com.boxapp.utils.Credentials;
-import com.boxapp.utils.FileInfo;
 import com.boxapp.utils.FileListAdapter;
 import com.boxapp.utils.KeyMap;
 
@@ -63,20 +62,16 @@ import java.util.Map;
 
 public final class MainActivity extends Activity implements DownloadListener, UploadListener {
     public static String jsonQuery = null;
-    public static final String FILE_NAME = "filename";
-    public static ArrayList<FileInfo> fileList = new ArrayList<FileInfo>();
 
     private String mAccessToken = null;
     private String mRefreshToken = null;
     private String mCurDirId = "0";
     private String mCurDirName = "All files";
     private String mCopyId = null;
-    private String mCopyName = null;
     private String mCopyType = null;
     private ListView mFileListView;
 
-    private final String EXT_STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/BoxApp";
-    private static final String TAG = "BoxAppLog";
+    private static final String TAG = "BoxApp";
 
     //Context menu items
     private static final int OPEN = Menu.FIRST;
@@ -113,7 +108,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         mRefreshToken = userDetails.getString(KeyMap.REFRESH_TOKEN, "");
         task = new AsyncLib(context, mAccessToken, mRefreshToken);
 
-        File folder = new File(EXT_STORAGE_PATH);
+        File folder = new File(KeyMap.EXT_STORAGE_PATH);
         if (folder.exists() && folder.isDirectory()) {
             folder.mkdirs();
         }
@@ -224,7 +219,6 @@ public final class MainActivity extends Activity implements DownloadListener, Up
             case (COPY):
                 mCopyId = ident;
                 mCopyType = type;
-                mCopyName = name;
                 itemPaste.setVisible(true);
                 return true;
 
@@ -296,21 +290,21 @@ public final class MainActivity extends Activity implements DownloadListener, Up
             case (PASTE_OPTION):
                 String url = Credentials.ROOT_URL + mCopyType + "s/" + mCopyId + "/copy";
                 String data = null;
-                if (containsSameName(mCopyName)) {
-                    String[] arr = mCopyName.split("\\.");
-                    String name = null;
-                    String type = null;
-                    if (arr.length > 1) {
-                        name = "";
-                        for (int i = 0; i < arr.length - 1; i++)
-                            name += arr[i];
-                        type = arr[arr.length - 1];
-                    }
-                    if (name != null && type != null) {
-                        data = "{\"parent\": {\"id\" : " + mCurDirId + "}, \"name\" : \"" + name + " Copy." + type + "\"}";
-                    }
-                } else
-                    data = "{\"parent\": {\"id\" : " + mCurDirId + "}}";
+//                if (containsSameName(mCopyName)) {
+//                    String[] arr = mCopyName.split("\\.");
+//                    String name = null;
+//                    String type = null;
+//                    if (arr.length > 1) {
+//                        name = "";
+//                        for (int i = 0; i < arr.length - 1; i++)
+//                            name += arr[i];
+//                        type = arr[arr.length - 1];
+//                    }
+//                    if (name != null && type != null) {
+//                        data = "{\"parent\": {\"id\" : " + mCurDirId + "}, \"name\" : \"" + name + " Copy." + type + "\"}";
+//                    }
+//                } else
+                data = "{\"parent\": {\"id\" : " + mCurDirId + "}}";
                 mCopyId = null;
                 MenuItem itemPaste = menu.findItem(PASTE_OPTION);
                 itemPaste.setVisible(false);
@@ -350,16 +344,16 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         }
     }
 
-    private boolean containsSameName(String curName) {
-        if (fileList.size() != 0) {
-            for (FileInfo info : fileList) {
-                if (info.getName().equals(curName))
-                    return true;
-            }
-            return false;
-        }
-        return false;
-    }
+//    private boolean containsSameName(String curName) {
+//        if (fileList.size() != 0) {
+//            for (FileInfo info : fileList) {
+//                if (info.getName().equals(curName))
+//                    return true;
+//            }
+//            return false;
+//        }
+//        return false;
+//    }
 
     private String getFileType(String name) {
         String type = null;
@@ -375,25 +369,20 @@ public final class MainActivity extends Activity implements DownloadListener, Up
      * @param position, number of file or folder in JSON
      */
     private FileInfo findObjectByPos(String json, int position) {
-        FileInfo fi = null;
-        JSONObject data;
-        String name = null;
-        String type = null;
-        String id = null;
-        String etag = null;
+        FileInfo info = null;
         try {
-            data = new JSONObject(json).getJSONObject("item_collection");
-            JSONArray files = data.getJSONArray("entries");
-            JSONObject text = files.getJSONObject(position);
-            name = text.getString("name");
-            type = text.getString("type");
-            id = text.getString("id");
-            etag = text.getString("etag");
-            fi = new FileInfo(name, type, id, etag);
+            JSONObject data = new JSONObject(json).getJSONObject(KeyMap.ITEM_COLLECTION);
+            JSONArray entries = data.getJSONArray(KeyMap.ENTRIES);
+            JSONObject object = entries.getJSONObject(position);
+            String name = object.getString(KeyMap.NAME);
+            String type = object.getString(KeyMap.TYPE);
+            String id = object.getString(KeyMap.ID);
+            String etag = object.getString(KeyMap.ETAG);
+            info = new FileInfo(name, type, id, etag);
         } catch (JSONException e) {
             Log.e(TAG, e.getMessage());
         }
-        return fi;
+        return info;
     }
 
     /**
@@ -502,7 +491,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
 
     private void openFile(String name) {
         Intent openIntent = new Intent(android.content.Intent.ACTION_VIEW);
-        File file = new File(EXT_STORAGE_PATH + "/" + name);
+        File file = new File(KeyMap.EXT_STORAGE_PATH + "/" + name);
         String extension = android.webkit.MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(file).toString().toLowerCase());
         String mimetype = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
         openIntent.setDataAndType(Uri.fromFile(file), mimetype);
@@ -510,8 +499,8 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     }
 
     private boolean isFileOnDevice(String name, String ident) {
-        File data = new File(EXT_STORAGE_PATH + "/" + name);
-        if(!data.exists())
+        File data = new File(KeyMap.EXT_STORAGE_PATH + "/" + name);
+        if (!data.exists())
             return false;
         SharedPreferences userDetails = getSharedPreferences(KeyMap.DOWNLOADED_FILES, MODE_PRIVATE);
         Map<String, ?> idList = userDetails.getAll();
@@ -563,7 +552,10 @@ public final class MainActivity extends Activity implements DownloadListener, Up
 
     @Override
     public void onUploadFailed(int code) {
-        Toast.makeText(this, "Uploading failed " + code, Toast.LENGTH_LONG).show();
+        if (code == 409) {
+            Toast.makeText(this, "File with the same name already exists in this folder.", Toast.LENGTH_LONG).show();
+        }
+
     }
 
 }

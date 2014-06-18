@@ -30,8 +30,8 @@
         </activity>
         <activity android:name=".ExplorerActivity" />
 
-        <service android:name=".utils.DownloadService" />
-        <service android:name=".utils.UploadService" />
+        <service android:name=".service.DownloadService" />
+        <service android:name=".service.UploadService" />
 
         <receiver
             android:name=".utils.BoxWidgetProvider"

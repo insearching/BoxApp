@@ -11,7 +11,7 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ListView;
 
-import com.boxapp.utils.FileInfo;
+import com.boxapp.entity.FileInfo;
 import com.boxapp.utils.FileListAdapter;
 
 import java.io.File;
