@@ -141,7 +141,7 @@ public class DownloadService extends Service {
             super.onProgressUpdate(progress);
             if ((progress[0] % 5) == 0 && mProgress != progress[0]) {
                 mProgress = progress[0];
-                showDownloadNotification(fileName, getString(R.string.downloading), mProgress);
+                updateDownloadNotification(fileName, getString(R.string.downloading), mProgress);
                 if (downloadListener != null) {
                     downloadListener.onProgressChanged(mProgress, fileName);
                 }
@@ -162,7 +162,7 @@ public class DownloadService extends Service {
         }
     }
 
-    private void showDownloadNotification(String title, String text, int progress) {
+    private void updateDownloadNotification(String title, String text, int progress) {
         NotificationManager nm = (NotificationManager)
                 getApplicationContext()
                         .getSystemService(Context.NOTIFICATION_SERVICE);

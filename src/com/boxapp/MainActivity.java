@@ -50,18 +50,15 @@ import com.boxapp.utils.AsyncLib;
 import com.boxapp.utils.BoxWidgetProvider;
 import com.boxapp.utils.Credentials;
 import com.boxapp.utils.FileListAdapter;
+import com.boxapp.utils.JSONHelper;
 import com.boxapp.utils.KeyMap;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Map;
 
-public final class MainActivity extends Activity implements DownloadListener, UploadListener {
-    public static String jsonQuery = null;
+public final class MainActivity extends Activity implements DownloadListener, UploadListener, AsyncLib.TaskListener {
+    private String jsonQuery = null;
 
     private String mAccessToken = null;
     private String mRefreshToken = null;
@@ -132,14 +129,14 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         mFileListView.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> a, View v, int position, long id) {
-                FileInfo fi = findObjectByPos(jsonQuery, (int) id);
-                String name = fi.getName();
-                String type = fi.getType();
-                String ident = fi.getId();
-                if (type.equals("folder")) {
+                FileInfo info = JSONHelper.findObjectByPos(jsonQuery, (int) id);
+                String name = info.getName();
+                String type = info.getType();
+                String ident = info.getId();
+                if (type.equals(KeyMap.FOLDER)) {
                     isFolderChanged = true;
                     openFolder(ident, name);
-                } else if (type.equals("file")) {
+                } else if (type.equals(KeyMap.FILE)) {
                     try {
                         if (isFileOnDevice(name, ident)) {
                             openFile(name);
@@ -167,7 +164,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
         int position = info.position;
 
-        FileInfo fi = findObjectByPos(jsonQuery, position);
+        FileInfo fi = JSONHelper.findObjectByPos(jsonQuery, position);
         String name = fi.getName();
         String ident = fi.getId();
         String type = fi.getType();
@@ -197,11 +194,11 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         int index = menuInfo.position;
         int optionSelected = item.getItemId();
 
-        FileInfo fi = findObjectByPos(jsonQuery, index);
-        String ident = fi.getId();
-        String name = fi.getName();
-        String type = fi.getType();
-        String etag = fi.getEtag();
+        FileInfo info = JSONHelper.findObjectByPos(jsonQuery, index);
+        String ident = info.getId();
+        String name = info.getName();
+        String type = info.getType();
+        String etag = info.getEtag();
         MenuItem itemPaste = menu.findItem(PASTE_OPTION);
 
         switch (optionSelected) {
@@ -289,22 +286,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
 
             case (PASTE_OPTION):
                 String url = Credentials.ROOT_URL + mCopyType + "s/" + mCopyId + "/copy";
-                String data = null;
-//                if (containsSameName(mCopyName)) {
-//                    String[] arr = mCopyName.split("\\.");
-//                    String name = null;
-//                    String type = null;
-//                    if (arr.length > 1) {
-//                        name = "";
-//                        for (int i = 0; i < arr.length - 1; i++)
-//                            name += arr[i];
-//                        type = arr[arr.length - 1];
-//                    }
-//                    if (name != null && type != null) {
-//                        data = "{\"parent\": {\"id\" : " + mCurDirId + "}, \"name\" : \"" + name + " Copy." + type + "\"}";
-//                    }
-//                } else
-                data = "{\"parent\": {\"id\" : " + mCurDirId + "}}";
+                String data = "{\"parent\": {\"id\" : " + mCurDirId + "}}";
                 mCopyId = null;
                 MenuItem itemPaste = menu.findItem(PASTE_OPTION);
                 itemPaste.setVisible(false);
@@ -328,7 +310,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (data != null) {
-            String path = data.getStringExtra("path");
+            String path = data.getStringExtra(KeyMap.PATH);
             task.uploadFile(Credentials.UPLOAD_URL, mCurDirId, path);
         }
     }
@@ -342,47 +324,6 @@ public final class MainActivity extends Activity implements DownloadListener, Up
             prevFolderView = folderList.get(folderList.size() - 2);
             prevFolderView.performClick();
         }
-    }
-
-//    private boolean containsSameName(String curName) {
-//        if (fileList.size() != 0) {
-//            for (FileInfo info : fileList) {
-//                if (info.getName().equals(curName))
-//                    return true;
-//            }
-//            return false;
-//        }
-//        return false;
-//    }
-
-    private String getFileType(String name) {
-        String type = null;
-        if (name.contains("."))
-            type = name.substring(name.indexOf("."));
-        return type;
-    }
-
-    /**
-     * Gets info about file or folder
-     *
-     * @param json,     JSON data got from response
-     * @param position, number of file or folder in JSON
-     */
-    private FileInfo findObjectByPos(String json, int position) {
-        FileInfo info = null;
-        try {
-            JSONObject data = new JSONObject(json).getJSONObject(KeyMap.ITEM_COLLECTION);
-            JSONArray entries = data.getJSONArray(KeyMap.ENTRIES);
-            JSONObject object = entries.getJSONObject(position);
-            String name = object.getString(KeyMap.NAME);
-            String type = object.getString(KeyMap.TYPE);
-            String id = object.getString(KeyMap.ID);
-            String etag = object.getString(KeyMap.ETAG);
-            info = new FileInfo(name, type, id, etag);
-        } catch (JSONException e) {
-            Log.e(TAG, e.getMessage());
-        }
-        return info;
     }
 
     /**
@@ -534,7 +475,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
 
     @Override
     public void onUploadStarted(String name) {
-        Toast.makeText(this, "Starting uploading " + name, Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.starting_uploading) + " " + name, Toast.LENGTH_LONG).show();
     }
 
     @Override
@@ -547,15 +488,21 @@ public final class MainActivity extends Activity implements DownloadListener, Up
 
     @Override
     public void onUploadCompleted(String name) {
-        Toast.makeText(this, "Uploading finished " + name, Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.uploading_finished) + " " + name, Toast.LENGTH_LONG).show();
     }
 
     @Override
     public void onUploadFailed(int code) {
         if (code == 409) {
-            Toast.makeText(this, "File with the same name already exists in this folder.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(R.string.file_exists), Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, getString(R.string.unknown_error), Toast.LENGTH_LONG).show();
         }
 
     }
 
+    @Override
+    public void onDataRecieved(String json) {
+        jsonQuery = json;
+    }
 }

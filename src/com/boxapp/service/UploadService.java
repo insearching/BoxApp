@@ -9,21 +9,12 @@ import android.os.IBinder;
 import android.util.Log;
 
 import com.boxapp.UploadListener;
-import com.boxapp.entity.FileInfo;
+import com.boxapp.entity.ResponseEntity;
 import com.boxapp.utils.FileHelper;
-import com.boxapp.utils.JSONHelper;
 import com.boxapp.utils.KeyMap;
+import com.boxapp.utils.MultipartUtility;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.mime.MultipartEntity;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.StringBody;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.util.EntityUtils;
+import org.apache.http.protocol.HTTP;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,6 +28,7 @@ public class UploadService extends Service {
     private UploadListener uploadListener;
     private IBinder mBinder = new FileUploaddBinder();
     private Integer mProgress = 0;
+    private int startId;
 
 
     public class FileUploaddBinder extends Binder {
@@ -59,13 +51,18 @@ public class UploadService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        String requestUrl = intent.getStringExtra(KeyMap.REQUEST_URL);
-        String accessToken = intent.getStringExtra(KeyMap.ACCESS_TOKEN);
-        String folderId = intent.getStringExtra(KeyMap.FOLDER);
-        String path = intent.getStringExtra(KeyMap.PATH);
+//        String requestUrl = intent.getStringExtra(KeyMap.REQUEST_URL);
+//        String accessToken = intent.getStringExtra(KeyMap.ACCESS_TOKEN);
+//        String folderId = intent.getStringExtra(KeyMap.FOLDER);
+//        String path = intent.getStringExtra(KeyMap.PATH);
+//
+//        new UploadFileTask(startId, path).execute(requestUrl, accessToken, folderId);
+        this.startId = startId;
+        return START_NOT_STICKY;
+    }
 
+    public void uploadFile(String requestUrl, String accessToken, String folderId, String path) {
         new UploadFileTask(startId, path).execute(requestUrl, accessToken, folderId);
-        return super.onStartCommand(intent, flags, startId);
     }
 
     /**
@@ -76,98 +73,64 @@ public class UploadService extends Service {
      * @param[2] - the ID of folder where this file should be uploaded
      * @param[3] - the path to file which has to be uploaded
      */
-    class UploadFileTask extends AsyncTask<String, Void, FileUploadResponse> {
+    class UploadFileTask extends AsyncTask<String, Void, ResponseEntity> {
         private int startId;
         private String path;
+        private String name;
 
         public UploadFileTask(int startId, String path) {
             this.startId = startId;
             this.path = path;
+            name = new File(path).getName();
         }
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+            if (uploadListener != null)
+                uploadListener.onUploadStarted(name);
         }
 
         @Override
-        protected FileUploadResponse doInBackground(String... param) {
-            FileUploadResponse uploadResponse = null;
-
-            File file = new File(path);
-            HttpClient client = new DefaultHttpClient();
-            HttpPost post = new HttpPost(param[0]);
-            post.setHeader("Authorization", "Bearer " + param[1]);
+        protected ResponseEntity doInBackground(String... param) {
+            ResponseEntity entity = null;
             try {
-                MultipartEntity multiEntity = new MultipartEntity();
-                multiEntity.addPart(KeyMap.PARENT_ID, new StringBody(param[2]));
-                multiEntity.addPart(KeyMap.FILE, new FileBody(file));
-                post.setEntity(multiEntity);
-                HttpResponse response = client.execute(post);
-                HttpEntity responseEntity = response.getEntity();
+                MultipartUtility multipart = new MultipartUtility(param[0], param[1], HTTP.UTF_8);
+                multipart.addFormField("parent_id", param[2]);
+                multipart.addFilePart("file", new File(param[3]));
 
-                int result = response.getStatusLine().getStatusCode();
-                uploadResponse = new FileUploadResponse(result);
-                if (responseEntity != null && result == 201) {
-                    try {
-                        uploadResponse.setInfo(JSONHelper.findObject(EntityUtils.toString(responseEntity), 0));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
+                entity = multipart.finish();
 
-            } catch (ClientProtocolException e) {
-                Log.e(TAG, e.getMessage());
-            } catch (IOException e) {
-                Log.e(TAG, e.getMessage());
+            } catch (IOException ex) {
+                Log.d("TAG error", ex.getMessage());
             }
-            return uploadResponse;
+            return entity;
         }
 
         @Override
-        protected void onPostExecute(FileUploadResponse response) {
+        protected void onPostExecute(ResponseEntity response) {
             super.onPostExecute(response);
+            if(response == null) {
+                stopSelf(startId);
+                return;
+            }
             int result = response.getStatusCode();
             if (response.getInfo() != null) {
-                FileInfo info = response.getInfo();
-                String fileName = info.getName();
-                uploadListener.onUploadCompleted(fileName);
-                new FileHelper(getApplicationContext()).copyFileOnDevice(path, KeyMap.EXT_STORAGE_PATH);
-
+                if (uploadListener != null)
+                    uploadListener.onUploadCompleted(name);
+                FileHelper helper = new FileHelper(getApplicationContext());
+                helper.copyFileOnDevice(path, KeyMap.EXT_STORAGE_PATH + "/" + name);
+                helper.saveFileData(response.getInfo().getId(), name);
             } else {
-                uploadListener.onUploadFailed(result);
+                if (uploadListener != null)
+                    uploadListener.onUploadFailed(result);
             }
             stopSelf(startId);
         }
     }
 
-
-    class FileUploadResponse {
-
-        private int statusCode;
-        private FileInfo info;
-
-        FileUploadResponse(int statusCode) {
-            this.statusCode = statusCode;
-            info = null;
-        }
-
-        public FileInfo getInfo() {
-            return info;
-        }
-
-        public int getStatusCode() {
-            return statusCode;
-        }
-
-        public void setInfo(FileInfo info) {
-            this.info = info;
-        }
-
-    }
-
-
     public void attachListener(Context context) {
         uploadListener = (UploadListener) context;
     }
+
 }

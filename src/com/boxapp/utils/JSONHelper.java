@@ -13,6 +13,8 @@ import org.json.JSONObject;
  */
 public class JSONHelper {
 
+    private static final String TAG = "JSON";
+
     /**
      * Gets info about file or folder, without array
      * in JSON query.
@@ -31,8 +33,31 @@ public class JSONHelper {
             String etag = text.getString(KeyMap.ETAG);
             return new FileInfo(name, type, id, etag);
         } catch (JSONException e) {
-            Log.e("JSON", e.getMessage());
+            Log.e(TAG, e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Gets info about file or folder
+     *
+     * @param json      JSON data got from response
+     * @param position  number of file or folder in JSON
+     */
+    public static FileInfo findObjectByPos(String json, int position) {
+        FileInfo info = null;
+        try {
+            JSONObject data = new JSONObject(json).getJSONObject(KeyMap.ITEM_COLLECTION);
+            JSONArray entries = data.getJSONArray(KeyMap.ENTRIES);
+            JSONObject object = entries.getJSONObject(position);
+            String name = object.getString(KeyMap.NAME);
+            String type = object.getString(KeyMap.TYPE);
+            String id = object.getString(KeyMap.ID);
+            String etag = object.getString(KeyMap.ETAG);
+            info = new FileInfo(name, type, id, etag);
+        } catch (JSONException e) {
+            Log.e(TAG, e.getMessage());
+        }
+        return info;
     }
 }

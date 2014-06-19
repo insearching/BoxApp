@@ -65,9 +65,12 @@ public final class AsyncLib {
     private DownloadService mDownloadService;
     private UploadService mUploadService;
     private FileHelper mFileHelper;
+    private TaskListener mListner;
 
     public AsyncLib(Context context, String accessToken, String refreshToken) {
         mContext = context;
+        mListner = (TaskListener) context;
+
         mAccessToken = accessToken;
         mRefreshToken = refreshToken;
         mFolderList = new ArrayList<TextView>();
@@ -110,12 +113,13 @@ public final class AsyncLib {
         mContext.startService(intent);
     }
 
-    public void uploadFile(String requestUrl, String folderId, String path) {
+    public void uploadFile(final String requestUrl, final String folderId, final String path) {
         ServiceConnection sConn = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder binder) {
                 mUploadService = ((UploadService.FileUploaddBinder) binder).getService();
                 mUploadService.attachListener(mContext);
+                mUploadService.uploadFile(requestUrl, mAccessToken, folderId, path);
             }
 
             @Override
@@ -124,11 +128,7 @@ public final class AsyncLib {
             }
         };
 
-        Intent intent = new Intent(mContext, UploadService.class)
-                .putExtra(KeyMap.REQUEST_URL, requestUrl)
-                .putExtra(KeyMap.ACCESS_TOKEN, mAccessToken)
-                .putExtra(KeyMap.FOLDER, folderId)
-                .putExtra(KeyMap.PATH, path);
+        Intent intent = new Intent(mContext, UploadService.class);
 
         mContext.bindService(intent, sConn, Context.BIND_AUTO_CREATE);
         mContext.startService(intent);
@@ -254,7 +254,7 @@ public final class AsyncLib {
      * file.
      */
     public void authorize() {
-        String response_type = "code";
+        String response_type = KeyMap.CODE;
         Intent intent = new Intent(mContext, BoxLoginActivity.class);
         intent.putExtra(KeyMap.REQUEST_URL, Credentials.AUTH_URL + "?response_type=" + response_type + "&client_id=" + Credentials.CLIENT_ID);
         mContext.startActivity(intent);
@@ -312,8 +312,8 @@ public final class AsyncLib {
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
             if (result == 200) {
-                MainActivity.jsonQuery = responseStr;
-                getFolderItems(MainActivity.jsonQuery);
+                mListner.onDataRecieved(responseStr);
+                getFolderItems(responseStr);
             }
         }
     }
@@ -568,5 +568,9 @@ public final class AsyncLib {
                         Toast.LENGTH_LONG).show();
             }
         }
+    }
+
+    public interface TaskListener {
+        public void onDataRecieved(String json);
     }
 }
