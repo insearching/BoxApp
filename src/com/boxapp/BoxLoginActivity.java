@@ -37,8 +37,6 @@ public class BoxLoginActivity extends ActionBarActivity {
     private static final String TAG = "BoxApp";
     private static final String CLIENT_ID = "8js646cfoogrnoi6zvnnb2yfl4f3uuok";
     private static final String CLIENT_SECRET = "KXMvD9FyBLCtsnHVtY27lBIdPyBLGjMK";
-    private static final String SERVICE_REQUEST_URL = "https://api.box.com/oauth2/token";
-    private static final String URL_DESRIPTION_PAGE = "https://www.box.com/services/boxsynchro";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,7 +80,7 @@ public class BoxLoginActivity extends ActionBarActivity {
         protected Credentials doInBackground(String... params) {
             String responseStr = null;
             HttpClient client = new DefaultHttpClient();
-            HttpPost post = new HttpPost(SERVICE_REQUEST_URL);
+            HttpPost post = new HttpPost(com.boxapp.utils.Credentials.AUTH_URL+"token");
             try {
                 List<NameValuePair> values = new ArrayList<NameValuePair>();
                 values.add(new BasicNameValuePair(KeyMap.CLIENT_ID, CLIENT_ID));

@@ -1,23 +1,18 @@
 package com.boxapp.service;
 
-import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.BitmapFactory;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.IBinder;
-import android.support.v4.app.NotificationCompat;
 import android.util.Log;
 import android.widget.Toast;
 
 import com.boxapp.DownloadListener;
 import com.boxapp.R;
+import com.boxapp.utils.BoxHelper;
 import com.boxapp.utils.FileHelper;
-import com.boxapp.utils.KeyMap;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -30,15 +25,15 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
 
 public class DownloadService extends Service {
-    //Application info on service
     private static final String TAG = "DOWANLOAD SERVICE";
-    private String mPath;
     private Context mContext = this;
     private DownloadListener downloadListener;
     private Integer mProgress = 0;
     private IBinder mBinder = new FileDownloadBinder();
+    private int startId;
 
     public class FileDownloadBinder extends Binder {
         public DownloadService getService() {
@@ -55,15 +50,8 @@ public class DownloadService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        String requestUrl = intent.getStringExtra(KeyMap.REQUEST_URL);
-        String accessToken = intent.getStringExtra(KeyMap.ACCESS_TOKEN);
-        String fileIdent = intent.getStringExtra(KeyMap.FILE_IDENT);
-        String fileName = intent.getStringExtra(KeyMap.FILE_NAME);
-        String position = intent.getStringExtra(KeyMap.POSITION);
-        mPath = intent.getStringExtra(KeyMap.PATH);
-
-        new DownloadFileTask(startId).execute(requestUrl, accessToken, fileIdent, fileName, position);
-        return super.onStartCommand(intent, flags, startId);
+        this.startId = startId;
+        return START_NOT_STICKY;
     }
 
     @Override
@@ -71,6 +59,10 @@ public class DownloadService extends Service {
         return mBinder;
     }
 
+
+    public void downloadFile(String requestUrl, String accessToken, String fileIdent, String fileName, String position, String path){
+        new DownloadFileTask(startId, path, fileName, position).execute(requestUrl, accessToken, fileIdent);
+    }
     /**
      * Downloads file from service
      * param[0] - request URL
@@ -81,26 +73,28 @@ public class DownloadService extends Service {
      */
     class DownloadFileTask extends AsyncTask<String, Integer, Integer> {
         int startId;
+        String path;
+        String fileName;
+        String position;
 
-        String fileName = null;
-        String position = null;
-
-        public DownloadFileTask(int startId) {
+        public DownloadFileTask(int startId, String path, String fileName, String position) {
             this.startId = startId;
+            this.path = path;
+            this.fileName = fileName;
+            this.position = position;
         }
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
             mProgress = 0;
+            if (downloadListener != null)
+                downloadListener.onDownloadStarted(fileName);
         }
 
         @Override
         protected Integer doInBackground(String... param) {
-            fileName = param[3];
-            position = param[4];
-            if (downloadListener != null)
-                downloadListener.onDownloadStarted(fileName);
+
             Integer count, result = null;
             try {
                 HttpClient client = new DefaultHttpClient();
@@ -108,14 +102,14 @@ public class DownloadService extends Service {
                 get.setHeader("Authorization", "Bearer " + param[1]);
                 HttpResponse responseGet = client.execute(get);
                 result = responseGet.getStatusLine().getStatusCode();
-                if (result == 200) {
-                    HttpEntity resEntityGet = responseGet.getEntity();
-                    if (resEntityGet != null) {
-                        InputStream is = resEntityGet.getContent();
-                        long lengthOfFile = resEntityGet.getContentLength();
+                if (result == HttpURLConnection.HTTP_OK) {
+                    HttpEntity entity = responseGet.getEntity();
+                    if (entity != null) {
+                        InputStream is = entity.getContent();
+                        long lengthOfFile = entity.getContentLength();
 
                         InputStream input = new BufferedInputStream(is, 8192);
-                        File file = createFile(fileName);
+                        File file = createFile(path, fileName);
                         OutputStream output = new FileOutputStream(file);
                         byte data[] = new byte[1024];
                         long total = 0;
@@ -141,9 +135,9 @@ public class DownloadService extends Service {
             super.onProgressUpdate(progress);
             if ((progress[0] % 5) == 0 && mProgress != progress[0]) {
                 mProgress = progress[0];
-                updateDownloadNotification(fileName, getString(R.string.downloading), mProgress);
+                BoxHelper.updateDownloadNotification(mContext, fileName, getString(R.string.downloading), mProgress, android.R.drawable.stat_sys_download, false);
                 if (downloadListener != null) {
-                    downloadListener.onProgressChanged(mProgress, fileName);
+                    downloadListener.onProgressChanged(mProgress, fileName, getString(R.string.downloading));
                 }
             }
         }
@@ -152,7 +146,7 @@ public class DownloadService extends Service {
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
             if (result != null && result == 200) {
-                showNotification(fileName, getString(R.string.downloaded));
+                BoxHelper.showNotification(mContext, fileName, getString(R.string.download_completed), path, android.R.drawable.stat_sys_download_done);
                 if (downloadListener != null)
                     downloadListener.onDownloadCompleted(Integer.parseInt(position), fileName);
             } else {
@@ -162,52 +156,8 @@ public class DownloadService extends Service {
         }
     }
 
-    private void updateDownloadNotification(String title, String text, int progress) {
-        NotificationManager nm = (NotificationManager)
-                getApplicationContext()
-                        .getSystemService(Context.NOTIFICATION_SERVICE);
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
-        builder.setAutoCancel(true)
-                .setContentTitle(title)
-                .setContentText(text + " " + progress + "%")
-                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher))
-                .setSmallIcon(android.R.drawable.stat_sys_download)
-                .setProgress(100, progress, false)
-                .setTicker(getString(R.string.downloading) + " " + title);
-        nm.notify(0, builder.build());
-    }
-
-    /**
-     * Show a notification when file is downloaded
-     */
-    private void showNotification(String title, String text) {
-        Intent notificationIntent = new Intent(android.content.Intent.ACTION_VIEW);
-        File file = new File(mPath + "/" + title);
-        String extension = android.webkit.MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(file).toString().toLowerCase());
-        String mimetype = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
-        notificationIntent.setDataAndType(Uri.fromFile(file), mimetype);
-
-        PendingIntent contentIntent = PendingIntent.getActivity(mContext,
-                1, notificationIntent,
-                PendingIntent.FLAG_CANCEL_CURRENT);
-
-        NotificationManager nm = (NotificationManager)
-                getApplicationContext()
-                        .getSystemService(Context.NOTIFICATION_SERVICE);
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this);
-        builder.setContentIntent(contentIntent)
-                .setAutoCancel(true)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setLargeIcon(BitmapFactory.decodeResource(getResources(), R.drawable.ic_launcher))
-                .setSmallIcon(R.drawable.file_downloaded);
-        nm.notify(0, builder.build());
-    }
-
-    private File createFile(String fileName) {
-        String sFolder = mPath + "/";
+    private File createFile(String path, String fileName) {
+        String sFolder = path + "/";
         File file = new File(sFolder);
         if (!file.exists())
             file.mkdirs();

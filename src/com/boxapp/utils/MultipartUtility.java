@@ -4,6 +4,8 @@ package com.boxapp.utils;
  * Created by insearching on 19.06.2014.
  */
 
+import android.util.Log;
+
 import com.boxapp.entity.ResponseEntity;
 
 import java.io.BufferedReader;
@@ -31,6 +33,7 @@ public class MultipartUtility {
     private String charset;
     private OutputStream outputStream;
     private PrintWriter writer;
+    private UploadStatusCallback callback;
 
     /**
      * This constructor initializes a new HTTP POST request with content type
@@ -40,9 +43,10 @@ public class MultipartUtility {
      * @param charset
      * @throws IOException
      */
-    public MultipartUtility(String requestURL, String accessToken, String charset)
+    public MultipartUtility(UploadStatusCallback callback, String requestURL, String accessToken, String charset)
             throws IOException {
         this.charset = charset;
+        this.callback = callback;
 
         // creates a unique boundary based on time stamp
         boundary = "===" + System.currentTimeMillis() + "===";
@@ -105,14 +109,20 @@ public class MultipartUtility {
         FileInputStream inputStream = new FileInputStream(uploadFile);
         byte[] buffer = new byte[4096];
         int bytesRead = -1;
+        int total = 0;
+        long lengthOfFile = uploadFile.length();
         while ((bytesRead = inputStream.read(buffer)) != -1) {
+            total += bytesRead;
             outputStream.write(buffer, 0, bytesRead);
+            callback.onProgressUpdate((int) ((total * 100) / lengthOfFile), (int) lengthOfFile);
         }
+
         outputStream.flush();
         inputStream.close();
 
         writer.append(LINE_FEED);
         writer.flush();
+        Log.d("Multipart", "Uploading finished");
     }
 
     /**
@@ -123,8 +133,6 @@ public class MultipartUtility {
      * @throws IOException
      */
     public ResponseEntity finish() throws IOException {
-        ResponseEntity entity = null;
-
 
         writer.append(LINE_FEED).flush();
         writer.append("--" + boundary + "--").append(LINE_FEED);
@@ -132,7 +140,7 @@ public class MultipartUtility {
 
         // checks server's status code first
         int status = httpConn.getResponseCode();
-        entity = new ResponseEntity(status);
+        ResponseEntity entity = new ResponseEntity(status);
         if (status == HttpURLConnection.HTTP_CREATED) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(
                     httpConn.getInputStream()));
@@ -142,10 +150,15 @@ public class MultipartUtility {
                 builder.append(line);
             }
             reader.close();
-            entity.setInfo(JSONHelper.findObject(builder.toString(), 0));
             httpConn.disconnect();
+            entity.setInfo(BoxHelper.findObject(builder.toString(), 0));
+
         }
 
         return entity;
+    }
+
+    public interface UploadStatusCallback {
+        public void onProgressUpdate(Integer... progress);
     }
 }

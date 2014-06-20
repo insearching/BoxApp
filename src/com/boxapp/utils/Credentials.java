@@ -5,8 +5,7 @@ package com.boxapp.utils;
  */
 public class Credentials {
     //Request URLs
-    public static final String AUTH_URL = "https://api.box.com/oauth2/authorize";
-    public static final String SERVICE_REQUEST_URL = "https://api.box.com/oauth2/token";
+    public static final String AUTH_URL = "https://api.box.com/oauth2/";
     public static final String ROOT_URL = "https://api.box.com/2.0/";
     public static final String UPLOAD_URL = "https://upload.box.com/api/2.0/files/content";
 

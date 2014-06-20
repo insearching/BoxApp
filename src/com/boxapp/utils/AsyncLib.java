@@ -1,12 +1,9 @@
 package com.boxapp.utils;
 
 import android.app.Activity;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
 import android.os.AsyncTask;
-import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -19,8 +16,6 @@ import com.boxapp.BoxLoginActivity;
 import com.boxapp.MainActivity;
 import com.boxapp.R;
 import com.boxapp.entity.FileInfo;
-import com.boxapp.service.DownloadService;
-import com.boxapp.service.UploadService;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -42,6 +37,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,7 +46,6 @@ import java.util.Map;
 public final class AsyncLib {
 
     public static final String TAG = "AsyncLib";
-    private String extStoragePath;
 
     private Context mContext;
     private String mAccessToken = null;
@@ -62,8 +57,6 @@ public final class AsyncLib {
     private RelativeLayout mProgressLayout;
     private LinearLayout mTopMenu;
 
-    private DownloadService mDownloadService;
-    private UploadService mUploadService;
     private FileHelper mFileHelper;
     private TaskListener mListner;
 
@@ -77,7 +70,6 @@ public final class AsyncLib {
         mFileListView = (ListView) ((Activity) mContext).findViewById(R.id.fileListView);
         mProgressLayout = (RelativeLayout) ((Activity) mContext).findViewById(R.id.loadFilesProgress);
         mTopMenu = (LinearLayout) ((Activity) mContext).findViewById(R.id.pathLayout);
-        extStoragePath = KeyMap.EXT_STORAGE_PATH;
         mFileHelper = new FileHelper(mContext);
     }
 
@@ -86,53 +78,6 @@ public final class AsyncLib {
         mFolderList = folderList;
 
         new GetData().execute(requestUrl + curDir);
-    }
-
-    public void downloadFile(String requestUrl, String ident, String fileName, String position) {
-        ServiceConnection sConn = new ServiceConnection() {
-            @Override
-            public void onServiceConnected(ComponentName name, IBinder binder) {
-                mDownloadService = ((DownloadService.FileDownloadBinder) binder).getService();
-                mDownloadService.attachListener(mContext);
-            }
-
-            @Override
-            public void onServiceDisconnected(ComponentName name) {
-                mDownloadService = null;
-            }
-        };
-        Intent intent = new Intent(mContext, DownloadService.class)
-                .putExtra(KeyMap.REQUEST_URL, requestUrl)
-                .putExtra(KeyMap.ACCESS_TOKEN, mAccessToken)
-                .putExtra(KeyMap.FILE_IDENT, ident)
-                .putExtra(KeyMap.FILE_NAME, fileName)
-                .putExtra(KeyMap.POSITION, position)
-                .putExtra(KeyMap.PATH, extStoragePath);
-
-        mContext.bindService(intent, sConn, Context.BIND_AUTO_CREATE);
-        mContext.startService(intent);
-    }
-
-    public void uploadFile(final String requestUrl, final String folderId, final String path) {
-        ServiceConnection sConn = new ServiceConnection() {
-            @Override
-            public void onServiceConnected(ComponentName name, IBinder binder) {
-                mUploadService = ((UploadService.FileUploaddBinder) binder).getService();
-                mUploadService.attachListener(mContext);
-                mUploadService.uploadFile(requestUrl, mAccessToken, folderId, path);
-            }
-
-            @Override
-            public void onServiceDisconnected(ComponentName name) {
-                mUploadService = null;
-            }
-        };
-
-        Intent intent = new Intent(mContext, UploadService.class);
-
-        mContext.bindService(intent, sConn, Context.BIND_AUTO_CREATE);
-        mContext.startService(intent);
-
     }
 
     public void renameItem(String requestUrl, String data,
@@ -172,10 +117,10 @@ public final class AsyncLib {
         @Override
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
-            if (result == 401) {
-                GetAccsesTokenTask gnat = new GetAccsesTokenTask();
-                gnat.execute(Credentials.SERVICE_REQUEST_URL);
-            } else if (result >= 200 || result <= 210) {
+            if (result == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                GetAccsesTokenTask task = new GetAccsesTokenTask();
+                task.execute(Credentials.AUTH_URL + "token");
+            } else if (result >= HttpURLConnection.HTTP_OK || result <= HttpURLConnection.HTTP_PARTIAL) {
                 mProgressLayout.setVisibility(View.INVISIBLE);
                 mFileListView.setVisibility(View.VISIBLE);
 
@@ -187,7 +132,7 @@ public final class AsyncLib {
         @Override
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
-            if (result >= 200 || result <= 210) {
+            if (result >= HttpURLConnection.HTTP_OK || result <= HttpURLConnection.HTTP_PARTIAL) {
                 GetData gd = new GetData();
                 gd.execute(Credentials.ROOT_URL + "folders/" + mCurDirId);
             }
@@ -235,9 +180,9 @@ public final class AsyncLib {
         @Override
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
-            if (result == 400) {
+            if (result == HttpURLConnection.HTTP_BAD_REQUEST) {
                 authorize();
-            } else if (result == 200) {
+            } else if (result == HttpURLConnection.HTTP_OK) {
                 mAccessToken = getToken(responseStr, KeyMap.ACCESS_TOKEN);
                 mRefreshToken = getToken(responseStr, KeyMap.REFRESH_TOKEN);
                 mFileHelper.recordPreferences(mAccessToken, mRefreshToken);
@@ -256,9 +201,9 @@ public final class AsyncLib {
     public void authorize() {
         String response_type = KeyMap.CODE;
         Intent intent = new Intent(mContext, BoxLoginActivity.class);
-        intent.putExtra(KeyMap.REQUEST_URL, Credentials.AUTH_URL + "?response_type=" + response_type + "&client_id=" + Credentials.CLIENT_ID);
+        intent.putExtra(KeyMap.REQUEST_URL, Credentials.AUTH_URL + "authorize?response_type=" + response_type + "&client_id=" + Credentials.CLIENT_ID);
         mContext.startActivity(intent);
-        ((MainActivity)mContext).finish();
+        ((MainActivity) mContext).finish();
     }
 
     /**
@@ -299,7 +244,7 @@ public final class AsyncLib {
                 HttpResponse responseGet = client.execute(get);
                 result = responseGet.getStatusLine().getStatusCode();
                 HttpEntity resEntityGet = responseGet.getEntity();
-                if (resEntityGet != null && result == 200) {
+                if (resEntityGet != null && result == HttpURLConnection.HTTP_OK) {
                     responseStr = EntityUtils.toString(resEntityGet);
                 }
             } catch (Exception e) {
@@ -311,7 +256,7 @@ public final class AsyncLib {
         @Override
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
-            if (result == 200) {
+            if (result == HttpURLConnection.HTTP_OK) {
                 mListner.onDataRecieved(responseStr);
                 getFolderItems(responseStr);
             }
@@ -397,7 +342,7 @@ public final class AsyncLib {
             if (type.equals(KeyMap.FOLDER)) {
                 itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, null);
             } else if (type.equals(KeyMap.FILE)) {
-                if (mFileHelper.isFileOnDevice(name, info.getId(), extStoragePath)) {
+                if (mFileHelper.isFileOnDevice(name, info.getId(), KeyMap.EXT_STORAGE_PATH)) {
                     itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.file_downloaded);
                 } else {
                     itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.non_downloaded);
@@ -416,8 +361,9 @@ public final class AsyncLib {
      */
     private void displayPathButtons() {
         mTopMenu.removeAllViewsInLayout();
-        for (int i = 0; i < mFolderList.size(); i++)
-            mTopMenu.addView(mFolderList.get(i));
+        for(TextView tv : mFolderList){
+            mTopMenu.addView(tv);
+        }
     }
 
     /**
@@ -426,7 +372,7 @@ public final class AsyncLib {
     class DeleteData extends AsyncGetData {
         @Override
         protected Integer doInBackground(String... param) {
-            Integer result = null;
+            Integer result;
             if (param.length == 2)
                 result = deleteFile(param[0], param[1]);
             else
@@ -446,12 +392,11 @@ public final class AsyncLib {
         HttpClient http = new DefaultHttpClient();
         HttpDelete delete = new HttpDelete(requestUrl);
         try {
-            HttpResponse response = null;
             delete.setHeader("Authorization", "Bearer " + mAccessToken);
             delete.setHeader("If-Match", etag);
-            response = http.execute(delete);
+            HttpResponse response = http.execute(delete);
             result = response.getStatusLine().getStatusCode();
-            if (result == 204) {
+            if (result == HttpURLConnection.HTTP_NO_CONTENT) {
                 String files = "files/";
                 String ident = requestUrl.substring(requestUrl.indexOf(files) + files.length());
                 mFileHelper.deleteFileData(ident);
@@ -468,7 +413,7 @@ public final class AsyncLib {
      * @param - requestUrl, URL to make a request
      */
     public Integer deleteDirectory(String requestUrl) {
-        Integer result = 0;
+        Integer result = null;
         HttpClient client = new DefaultHttpClient();
         HttpDelete delete = new HttpDelete(requestUrl);
         try {
@@ -522,13 +467,13 @@ public final class AsyncLib {
         @Override
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
-            if (result == 400) {
+            if (result == HttpURLConnection.HTTP_BAD_REQUEST) {
                 Toast.makeText(mContext, "Failed to rename file or folder.",
                         Toast.LENGTH_LONG).show();
-            } else if (result == 200) {
+            } else if (result == HttpURLConnection.HTTP_OK) {
                 Toast.makeText(mContext, "Item successfully have been renamed.",
                         Toast.LENGTH_LONG).show();
-                mFileHelper.renameFileOnDevice(ident, oldName, newName, extStoragePath);
+                mFileHelper.renameFileOnDevice(ident, oldName, newName, KeyMap.EXT_STORAGE_PATH);
             }
         }
     }
@@ -563,7 +508,7 @@ public final class AsyncLib {
         @Override
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
-            if (result == 409) {
+            if (result == HttpURLConnection.HTTP_CONFLICT) {
                 Toast.makeText(mContext, "Item with the same name already exists.",
                         Toast.LENGTH_LONG).show();
             }

@@ -8,8 +8,10 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
+import com.boxapp.R;
 import com.boxapp.UploadListener;
 import com.boxapp.entity.ResponseEntity;
+import com.boxapp.utils.BoxHelper;
 import com.boxapp.utils.FileHelper;
 import com.boxapp.utils.KeyMap;
 import com.boxapp.utils.MultipartUtility;
@@ -25,13 +27,14 @@ import java.io.IOException;
 public class UploadService extends Service {
 
     private static final String TAG = "UPLOAD SERVICE";
+    private Context mContext = this;
     private UploadListener uploadListener;
-    private IBinder mBinder = new FileUploaddBinder();
+    private IBinder mBinder = new FileUploadBinder();
     private Integer mProgress = 0;
     private int startId;
 
 
-    public class FileUploaddBinder extends Binder {
+    public class FileUploadBinder extends Binder {
         public UploadService getService() {
             return UploadService.this;
         }
@@ -51,12 +54,6 @@ public class UploadService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-//        String requestUrl = intent.getStringExtra(KeyMap.REQUEST_URL);
-//        String accessToken = intent.getStringExtra(KeyMap.ACCESS_TOKEN);
-//        String folderId = intent.getStringExtra(KeyMap.FOLDER);
-//        String path = intent.getStringExtra(KeyMap.PATH);
-//
-//        new UploadFileTask(startId, path).execute(requestUrl, accessToken, folderId);
         this.startId = startId;
         return START_NOT_STICKY;
     }
@@ -73,57 +70,75 @@ public class UploadService extends Service {
      * @param[2] - the ID of folder where this file should be uploaded
      * @param[3] - the path to file which has to be uploaded
      */
-    class UploadFileTask extends AsyncTask<String, Void, ResponseEntity> {
+    class UploadFileTask extends AsyncTask<String, Integer, ResponseEntity> implements MultipartUtility.UploadStatusCallback {
         private int startId;
         private String path;
-        private String name;
+        private String fileName;
 
         public UploadFileTask(int startId, String path) {
             this.startId = startId;
             this.path = path;
-            name = new File(path).getName();
+            fileName = new File(path).getName();
         }
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
             if (uploadListener != null)
-                uploadListener.onUploadStarted(name);
+                uploadListener.onUploadStarted(fileName);
         }
 
         @Override
         protected ResponseEntity doInBackground(String... param) {
             ResponseEntity entity = null;
             try {
-                MultipartUtility multipart = new MultipartUtility(param[0], param[1], HTTP.UTF_8);
-                multipart.addFormField("parent_id", param[2]);
-                multipart.addFilePart("file", new File(param[3]));
+                MultipartUtility multipart = new MultipartUtility(this, param[0], param[1], HTTP.UTF_8);
+                multipart.addFormField(KeyMap.PARENT_ID, param[2]);
+                multipart.addFilePart(KeyMap.FILE, new File(path));
 
                 entity = multipart.finish();
 
             } catch (IOException ex) {
-                Log.d("TAG error", ex.getMessage());
+                Log.d(TAG, ex.getMessage());
             }
             return entity;
         }
 
         @Override
-        protected void onPostExecute(ResponseEntity response) {
-            super.onPostExecute(response);
-            if(response == null) {
+        public void onProgressUpdate(Integer... progress) {
+            super.onProgressUpdate(progress);
+            if ((progress[0] % 5) == 0 && mProgress != progress[0]) {
+                mProgress = progress[0];
+                if(mProgress >= 75)
+                    return;
+                Log.d(TAG, ""+mProgress);
+                BoxHelper.updateDownloadNotification(mContext, fileName, getString(R.string.uploading), mProgress, android.R.drawable.stat_sys_upload, true);
+                if (uploadListener != null) {
+                    uploadListener.onProgressChanged(mProgress, fileName, getString(R.string.uploading));
+                }
+            }
+        }
+
+        @Override
+        protected void onPostExecute(ResponseEntity entity) {
+            super.onPostExecute(entity);
+            if(entity == null) {
                 stopSelf(startId);
                 return;
             }
-            int result = response.getStatusCode();
-            if (response.getInfo() != null) {
+            int result = entity.getStatusCode();
+            if (entity.getInfo() != null) {
                 if (uploadListener != null)
-                    uploadListener.onUploadCompleted(name);
+                    uploadListener.onUploadCompleted(fileName);
+
+                BoxHelper.showNotification(mContext, fileName, getString(R.string.upload_completed), path, android.R.drawable.stat_sys_upload_done);
                 FileHelper helper = new FileHelper(getApplicationContext());
-                helper.copyFileOnDevice(path, KeyMap.EXT_STORAGE_PATH + "/" + name);
-                helper.saveFileData(response.getInfo().getId(), name);
+                helper.copyFileOnDevice(path, KeyMap.EXT_STORAGE_PATH + "/" + fileName);
+                helper.saveFileData(entity.getInfo().getId(), fileName);
             } else {
                 if (uploadListener != null)
                     uploadListener.onUploadFailed(result);
+                BoxHelper.showNotification(mContext, fileName, getString(R.string.upload_failed), path, android.R.drawable.stat_sys_upload_done);
             }
             stopSelf(startId);
         }

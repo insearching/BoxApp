@@ -16,15 +16,18 @@ package com.boxapp;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
 import android.graphics.Typeface;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.text.SpannableString;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
@@ -46,11 +49,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.boxapp.entity.FileInfo;
+import com.boxapp.service.DownloadService;
+import com.boxapp.service.UploadService;
 import com.boxapp.utils.AsyncLib;
+import com.boxapp.utils.BoxHelper;
 import com.boxapp.utils.BoxWidgetProvider;
 import com.boxapp.utils.Credentials;
 import com.boxapp.utils.FileListAdapter;
-import com.boxapp.utils.JSONHelper;
 import com.boxapp.utils.KeyMap;
 
 import java.io.File;
@@ -67,6 +72,9 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     private String mCopyId = null;
     private String mCopyType = null;
     private ListView mFileListView;
+
+    private DownloadService mDownloadService;
+    private UploadService mUploadService;
 
     private static final String TAG = "BoxApp";
 
@@ -89,6 +97,33 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     private TextView homeButton;
     private boolean isFolderChanged = false;
     private Menu menu;
+
+
+    private ServiceConnection mDownloadConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+            mDownloadService = ((DownloadService.FileDownloadBinder) binder).getService();
+            mDownloadService.attachListener(MainActivity.this);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mDownloadService = null;
+        }
+    };
+
+    private ServiceConnection mUploadConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+            mUploadService = ((UploadService.FileUploadBinder) binder).getService();
+            mUploadService.attachListener(MainActivity.this);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mUploadService = null;
+        }
+    };
 
     @SuppressLint("NewApi")
     @Override
@@ -129,7 +164,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         mFileListView.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> a, View v, int position, long id) {
-                FileInfo info = JSONHelper.findObjectByPos(jsonQuery, (int) id);
+                FileInfo info = BoxHelper.findObjectByPos(jsonQuery, (int) id);
                 String name = info.getName();
                 String type = info.getType();
                 String ident = info.getId();
@@ -145,8 +180,12 @@ public final class MainActivity extends Activity implements DownloadListener, Up
                             v.findViewById(R.id.progressBar).setVisibility(View.VISIBLE);
                             v.findViewById(R.id.download_status).setVisibility(View.INVISIBLE);
 
-                            task.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content",
-                                    ident, name, String.valueOf(position));
+                            mDownloadService.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content", mAccessToken,
+                                    ident, name, String.valueOf(position), KeyMap.EXT_STORAGE_PATH);
+//                            task.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content",
+//                                    ident, name, String.valueOf(position));
+
+
                         }
                     } catch (Exception e) {
                         Toast.makeText(MainActivity.this, getString(R.string.no_app_found),
@@ -164,7 +203,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
         int position = info.position;
 
-        FileInfo fi = JSONHelper.findObjectByPos(jsonQuery, position);
+        FileInfo fi = BoxHelper.findObjectByPos(jsonQuery, position);
         String name = fi.getName();
         String ident = fi.getId();
         String type = fi.getType();
@@ -194,7 +233,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         int index = menuInfo.position;
         int optionSelected = item.getItemId();
 
-        FileInfo info = JSONHelper.findObjectByPos(jsonQuery, index);
+        FileInfo info = BoxHelper.findObjectByPos(jsonQuery, index);
         String ident = info.getId();
         String name = info.getName();
         String type = info.getType();
@@ -241,8 +280,10 @@ public final class MainActivity extends Activity implements DownloadListener, Up
             case (DOWNLOAD):
                 if (type.equals("file")) {
                     isFolderChanged = true;
-                    task.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content",
-                            ident, name, String.valueOf(index));
+                    mDownloadService.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content", mAccessToken,
+                            ident, name, String.valueOf(index), KeyMap.EXT_STORAGE_PATH);
+//                    task.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content",
+//                            ident, name, String.valueOf(index));
                 }
                 return true;
 
@@ -295,9 +336,9 @@ public final class MainActivity extends Activity implements DownloadListener, Up
                 break;
 
             case (LOGOUT):
-                mAccessToken = "";
-                mRefreshToken = "";
-                SharedPreferences userDetails = getSharedPreferences("userdetails", MODE_PRIVATE);
+                mAccessToken = null;
+                mRefreshToken = null;
+                SharedPreferences userDetails = getSharedPreferences(KeyMap.USER_DETAILS, MODE_PRIVATE);
                 Editor edit = userDetails.edit();
                 edit.clear();
                 edit.commit();
@@ -311,8 +352,22 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         super.onActivityResult(requestCode, resultCode, data);
         if (data != null) {
             String path = data.getStringExtra(KeyMap.PATH);
-            task.uploadFile(Credentials.UPLOAD_URL, mCurDirId, path);
+            mUploadService.uploadFile(Credentials.UPLOAD_URL, mAccessToken, mCurDirId, path);
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        bindService(new Intent(this, DownloadService.class), mDownloadConnection, Context.BIND_AUTO_CREATE);
+        bindService(new Intent(this, UploadService.class), mUploadConnection, Context.BIND_AUTO_CREATE);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        unbindService(mDownloadConnection);
+        unbindService(mUploadConnection);
     }
 
     @Override
@@ -479,16 +534,16 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     }
 
     @Override
-    public void onProgressChanged(Integer progress, String name) {
+    public void onProgressChanged(Integer progress, String name, String action) {
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra(KeyMap.STATUS, getString(R.string.downloading) + " " + name);
+        intent.putExtra(KeyMap.STATUS, action + " " + name);
         intent.putExtra(KeyMap.PROGRESS, progress);
         sendBroadcast(intent);
     }
 
     @Override
     public void onUploadCompleted(String name) {
-        Toast.makeText(this, getString(R.string.uploading_finished) + " " + name, Toast.LENGTH_LONG).show();
+        Toast.makeText(this, getString(R.string.upload_completed) + " " + name, Toast.LENGTH_LONG).show();
     }
 
     @Override
