@@ -25,7 +25,7 @@
     <string name="download_starting">Starting to download file</string>
     <string name="download_completed">File successfully downloaded</string>
     <string name="upload_completed">File successfully uploaded</string>
-    <string name="download_failed">Failed to download file.</string>
+    <string name="download_failed">Failed to download file</string>
     <string name="debug">DEBUG</string>
     <string name="auth_success">You have been successfully authorized!</string>
     <string name="loading">Loading files...</string>

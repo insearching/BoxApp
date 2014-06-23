@@ -59,6 +59,7 @@ import com.boxapp.utils.FileListAdapter;
 import com.boxapp.utils.KeyMap;
 
 import java.io.File;
+import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.Map;
 
@@ -517,20 +518,24 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     }
 
     @Override
-    public void onDownloadCompleted(int position, String name) {
+    public void onDownloadCompleted(int position, String name, Integer result) {
+        boolean isDownloaded = result == HttpURLConnection.HTTP_OK;
+        String status = isDownloaded ? name + " " + getString(R.string.downloaded) : getString(R.string.download_failed) + " " + name;
         if (!isFolderChanged) {
             FileListAdapter adapter = (FileListAdapter) mFileListView.getAdapter();
-            adapter.setDownloaded(position, true);
+            adapter.setDownloaded(position, isDownloaded);
             adapter.notifyDataSetChanged();
         }
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra(KeyMap.STATUS, name + " " + getString(R.string.downloaded));
+        intent.putExtra(KeyMap.STATUS, status);
         sendBroadcast(intent);
     }
 
     @Override
     public void onUploadStarted(String name) {
-        Toast.makeText(this, getString(R.string.starting_uploading) + " " + name, Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
+        intent.putExtra(KeyMap.STATUS, getString(R.string.uploading) + " " + name);
+        sendBroadcast(intent);
     }
 
     @Override

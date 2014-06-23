@@ -1,5 +1,6 @@
 package com.boxapp.service;
 
+
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -143,6 +144,172 @@ public class UploadService extends Service {
             stopSelf(startId);
         }
     }
+
+
+    /*class UploadFileTask extends AsyncTask<String, Integer, String> implements MultipartUtility.UploadStatusCallback {
+        private int startId;
+        private String path;
+        private String fileName;
+
+        public UploadFileTask(int startId, String path) {
+            this.startId = startId;
+            this.path = path;
+            fileName = new File(path).getName();
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            if (uploadListener != null)
+                uploadListener.onUploadStarted(fileName);
+        }
+
+        @Override
+        protected String doInBackground(String... param) {
+            String response = null;
+            try {
+                response = postFile(param[0], param[1], path, param[2]);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return response;
+        }
+
+        @Override
+        public void onProgressUpdate(Integer... progress) {
+            super.onProgressUpdate(progress);
+            if ((progress[0] % 5) == 0 && mProgress != progress[0]) {
+                mProgress = progress[0];
+                if(mProgress >= 75)
+                    return;
+                Log.d(TAG, "" + mProgress);
+                BoxHelper.updateDownloadNotification(mContext, fileName, getString(R.string.uploading), mProgress, android.R.drawable.stat_sys_upload, true);
+                if (uploadListener != null) {
+                    uploadListener.onProgressChanged(mProgress, fileName, getString(R.string.uploading));
+                }
+            }
+        }
+
+        @Override
+        protected void onPostExecute(String response) {
+            super.onPostExecute(response);
+            if(response == null) {
+                stopSelf(startId);
+                return;
+            }
+            Log.d(TAG, response);
+            stopSelf(startId);
+        }
+    }
+
+
+    public static String postFile(String requestUrl, String accessToken, String path, String parentId) throws Exception {
+        HttpClient client = new DefaultHttpClient();
+        HttpPost post = new HttpPost(requestUrl);
+        post.setHeader("Authorization", "Bearer " + accessToken);
+
+        MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+        builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+
+        builder.addTextBody(KeyMap.PARENT_ID, parentId);
+        builder.addPart("file",  new FileBody(new File(path)));
+
+        final HttpEntity yourEntity = builder.build();
+
+        class ProgressiveEntity implements HttpEntity {
+            @Override
+            public void consumeContent() throws IOException {
+                yourEntity.consumeContent();
+            }
+            @Override
+            public InputStream getContent() throws IOException,
+                    IllegalStateException {
+                return yourEntity.getContent();
+            }
+            @Override
+            public Header getContentEncoding() {
+                return yourEntity.getContentEncoding();
+            }
+            @Override
+            public long getContentLength() {
+                return yourEntity.getContentLength();
+            }
+            @Override
+            public Header getContentType() {
+                return yourEntity.getContentType();
+            }
+            @Override
+            public boolean isChunked() {
+                return yourEntity.isChunked();
+            }
+            @Override
+            public boolean isRepeatable() {
+                return yourEntity.isRepeatable();
+            }
+            @Override
+            public boolean isStreaming() {
+                return yourEntity.isStreaming();
+            } // CONSIDER put a _real_ delegator into here!
+
+            @Override
+            public void writeTo(OutputStream outstream) throws IOException {
+
+                class ProxyOutputStream extends FilterOutputStream {
+
+                    public ProxyOutputStream(OutputStream proxy) {
+                        super(proxy);
+                    }
+                    public void write(int idx) throws IOException {
+                        out.write(idx);
+                    }
+                    public void write(byte[] bts) throws IOException {
+                        out.write(bts);
+                    }
+                    public void write(byte[] bts, int st, int end) throws IOException {
+                        out.write(bts, st, end);
+                    }
+                    public void flush() throws IOException {
+                        out.flush();
+                    }
+                    public void close() throws IOException {
+                        out.close();
+                    }
+                } // CONSIDER import this class (and risk more Jar File Hell)
+
+                class ProgressiveOutputStream extends ProxyOutputStream {
+                    public ProgressiveOutputStream(OutputStream proxy) {
+                        super(proxy);
+                    }
+                    int total = 0;
+                    public void write(byte[] bts, int st, int end) throws IOException {
+                        Log.d(TAG, bts.length + " " + st + " " + end);
+                        out.write(bts, st, end);
+                    }
+                }
+
+                yourEntity.writeTo(new ProgressiveOutputStream(outstream));
+            }
+
+        };
+        ProgressiveEntity myEntity = new ProgressiveEntity();
+
+        post.setEntity(myEntity);
+        HttpResponse response = client.execute(post);
+        return getContent(response);
+
+    }
+
+    public static String getContent(HttpResponse response) throws IOException {
+        BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
+        String body;
+        String content = "";
+
+        while ((body = rd.readLine()) != null)
+        {
+            content += body + "\n";
+        }
+        return content.trim();
+    }*/
 
     public void attachListener(Context context) {
         uploadListener = (UploadListener) context;

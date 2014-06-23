@@ -30,7 +30,7 @@ import java.net.HttpURLConnection;
 public class DownloadService extends Service {
     private static final String TAG = "DOWANLOAD SERVICE";
     private Context mContext = this;
-    private DownloadListener downloadListener;
+    private DownloadListener callback;
     private Integer mProgress = 0;
     private IBinder mBinder = new FileDownloadBinder();
     private int startId;
@@ -88,8 +88,8 @@ public class DownloadService extends Service {
         protected void onPreExecute() {
             super.onPreExecute();
             mProgress = 0;
-            if (downloadListener != null)
-                downloadListener.onDownloadStarted(fileName);
+            if (callback != null)
+                callback.onDownloadStarted(fileName);
         }
 
         @Override
@@ -136,8 +136,8 @@ public class DownloadService extends Service {
             if ((progress[0] % 5) == 0 && mProgress != progress[0]) {
                 mProgress = progress[0];
                 BoxHelper.updateDownloadNotification(mContext, fileName, getString(R.string.downloading), mProgress, android.R.drawable.stat_sys_download, false);
-                if (downloadListener != null) {
-                    downloadListener.onProgressChanged(mProgress, fileName, getString(R.string.downloading));
+                if (callback != null) {
+                    callback.onProgressChanged(mProgress, fileName, getString(R.string.downloading));
                 }
             }
         }
@@ -145,11 +145,14 @@ public class DownloadService extends Service {
         @Override
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
-            if (result != null && result == 200) {
+
+            if (callback != null)
+                callback.onDownloadCompleted(Integer.parseInt(position), fileName, result);
+            if (result != null && result == HttpURLConnection.HTTP_OK) {
                 BoxHelper.showNotification(mContext, fileName, getString(R.string.download_completed), path, android.R.drawable.stat_sys_download_done);
-                if (downloadListener != null)
-                    downloadListener.onDownloadCompleted(Integer.parseInt(position), fileName);
+
             } else {
+                BoxHelper.showNotification(mContext, fileName, getString(R.string.download_completed), path, android.R.drawable.stat_sys_download_done);
                 Toast.makeText(mContext, getString(R.string.download_failed), Toast.LENGTH_LONG).show();
             }
             stopSelf(startId);
@@ -178,6 +181,6 @@ public class DownloadService extends Service {
     }
 
     public void attachListener(Context context) {
-        downloadListener = (DownloadListener) context;
+        callback = (DownloadListener) context;
     }
 }
