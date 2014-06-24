@@ -38,4 +38,5 @@ public class KeyMap {
     public static final String PARENT_ID = "parent_id";
 
     public static final String EXT_STORAGE_PATH = Environment.getExternalStorageDirectory().getPath() + "/BoxApp";
+    public static final String JSON = "json";
 }

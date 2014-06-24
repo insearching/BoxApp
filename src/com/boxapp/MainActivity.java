@@ -13,7 +13,6 @@
  */
 package com.boxapp;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ComponentName;
@@ -44,7 +43,6 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -55,29 +53,34 @@ import com.boxapp.utils.AsyncLib;
 import com.boxapp.utils.BoxHelper;
 import com.boxapp.utils.BoxWidgetProvider;
 import com.boxapp.utils.Credentials;
+import com.boxapp.utils.FileHelper;
 import com.boxapp.utils.FileListAdapter;
 import com.boxapp.utils.KeyMap;
+import com.markupartist.android.widget.PullToRefreshListView;
 
 import java.io.File;
 import java.net.HttpURLConnection;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 
 public final class MainActivity extends Activity implements DownloadListener, UploadListener, AsyncLib.TaskListener {
-    private String jsonQuery = null;
 
+    private static final String TAG = "BoxApp";
+    private String mJson = null;
     private String mAccessToken = null;
     private String mRefreshToken = null;
     private String mCurDirId = "0";
     private String mCurDirName = "All files";
     private String mCopyId = null;
     private String mCopyType = null;
-    private ListView mFileListView;
+    private PullToRefreshListView mFileListView;
+    private FileListAdapter mAdapter;
+    private FileHelper mFileHelper;
+    private LinearLayout mTopMenu;
 
     private DownloadService mDownloadService;
     private UploadService mUploadService;
-
-    private static final String TAG = "BoxApp";
 
     //Context menu items
     private static final int OPEN = Menu.FIRST;
@@ -92,7 +95,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     private static final int PASTE_OPTION = R.id.menu_paste;
     private static final int LOGOUT = R.id.menu_logout;
 
-    private ArrayList<TextView> folderList;
+    private ArrayList<TextView> mFolderList;
     private final Context context = this;
     private AsyncLib task;
     private TextView homeButton;
@@ -126,12 +129,13 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         }
     };
 
-    @SuppressLint("NewApi")
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        mFileListView = (ListView) findViewById(R.id.fileListView);
+        mFileListView = (PullToRefreshListView) findViewById(R.id.fileListView);
+        mTopMenu = (LinearLayout) findViewById(R.id.pathLayout);
+        mFileHelper = new FileHelper(this);
 
         registerForContextMenu(mFileListView);
         getActionBar().setHomeButtonEnabled(true);
@@ -145,27 +149,35 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         if (folder.exists() && folder.isDirectory()) {
             folder.mkdirs();
         }
-        folderList = new ArrayList<TextView>();
+
+        mFolderList = new ArrayList<TextView>();
         homeButton = addPathButton(mCurDirName, mCurDirId);
-        if (savedInstanceState != null && savedInstanceState.containsKey("adapter")) {
-            findViewById(R.id.loadFilesProgress).setVisibility(View.INVISIBLE);
-            mFileListView.setAdapter((FileListAdapter) savedInstanceState.getSerializable("adapter"));
+        if (savedInstanceState != null && savedInstanceState.containsKey(KeyMap.JSON)) {
+            mJson = savedInstanceState.getString(KeyMap.JSON);
+            displayFileStructure(BoxHelper.getFolderItems(mJson));
         } else if (isNetworkConnected()) {
             if (mRefreshToken == null || mRefreshToken.equals("")
                     || mRefreshToken.length() < 64) {
                 task.authorize();
             } else {
-                task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, folderList);
+                task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, mFolderList);
             }
         } else {
             Toast.makeText(MainActivity.this, "No internet connection." +
                     "Please, check your connection, and try again!", Toast.LENGTH_LONG).show();
         }
 
+
+        mFileListView.setOnRefreshListener(new PullToRefreshListView.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                openFolder(mCurDirId);
+            }
+        });
         mFileListView.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> a, View v, int position, long id) {
-                FileInfo info = BoxHelper.findObjectByPos(jsonQuery, (int) id);
+                FileInfo info = BoxHelper.findObjectByPos(mJson, (int) id);
                 String name = info.getName();
                 String type = info.getType();
                 String ident = info.getId();
@@ -183,10 +195,6 @@ public final class MainActivity extends Activity implements DownloadListener, Up
 
                             mDownloadService.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content", mAccessToken,
                                     ident, name, String.valueOf(position), KeyMap.EXT_STORAGE_PATH);
-//                            task.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content",
-//                                    ident, name, String.valueOf(position));
-
-
                         }
                     } catch (Exception e) {
                         Toast.makeText(MainActivity.this, getString(R.string.no_app_found),
@@ -199,12 +207,25 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        if(mJson != null)
+            displayFileStructure(BoxHelper.getFolderItems(mJson));
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putString(KeyMap.JSON, mJson);
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
     public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(menu, v, menuInfo);
         AdapterContextMenuInfo info = (AdapterContextMenuInfo) menuInfo;
         int position = info.position;
 
-        FileInfo fi = BoxHelper.findObjectByPos(jsonQuery, position);
+        FileInfo fi = BoxHelper.findObjectByPos(mJson, position);
         String name = fi.getName();
         String ident = fi.getId();
         String type = fi.getType();
@@ -234,7 +255,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         int index = menuInfo.position;
         int optionSelected = item.getItemId();
 
-        FileInfo info = BoxHelper.findObjectByPos(jsonQuery, index);
+        FileInfo info = BoxHelper.findObjectByPos(mJson, index);
         String ident = info.getId();
         String name = info.getName();
         String type = info.getType();
@@ -283,8 +304,6 @@ public final class MainActivity extends Activity implements DownloadListener, Up
                     isFolderChanged = true;
                     mDownloadService.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content", mAccessToken,
                             ident, name, String.valueOf(index), KeyMap.EXT_STORAGE_PATH);
-//                    task.downloadFile(Credentials.ROOT_URL + "files/" + ident + "/content",
-//                            ident, name, String.valueOf(index));
                 }
                 return true;
 
@@ -374,11 +393,85 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     @Override
     public void onBackPressed() {
         TextView prevFolderView;
-        if (folderList.size() <= 1)
+        if (mFolderList.size() <= 1)
             finish();
         else {
-            prevFolderView = folderList.get(folderList.size() - 2);
+            prevFolderView = mFolderList.get(mFolderList.size() - 2);
             prevFolderView.performClick();
+        }
+    }
+
+    /**
+     * Shows file structure, including file and folders
+     * Also shows download status.
+     *
+     * @param fileList, ArrayList of files and folders info
+     *                  which have to be represented
+     */
+    private void displayFileStructure(ArrayList<FileInfo> fileList) {
+        final String ATTRIBUTE_NAME_TITLE = "title";
+        final String ATTRIBUTE_NAME_DOWNLOADED = "status";
+        final String ATTRIBUTE_NAME_IMAGE = "image";
+
+        Map<String, Integer> drawableList = new HashMap<String, Integer>();
+        drawableList.put(".jpg", R.drawable.jpg);
+        drawableList.put(".jpeg", R.drawable.jpeg);
+        drawableList.put(".png", R.drawable.png);
+        drawableList.put(".gif", R.drawable.gif);
+
+        drawableList.put(".doc", R.drawable.doc);
+        drawableList.put(".docx", R.drawable.docx);
+        drawableList.put(".ppt", R.drawable.ppt);
+        drawableList.put(".pptx", R.drawable.pptx);
+
+        drawableList.put(".pdf", R.drawable.pdf);
+        drawableList.put(".txt", R.drawable.txt);
+        drawableList.put(".exe", R.drawable.exe);
+        drawableList.put(".mp3", R.drawable.mp3);
+        drawableList.put(".mp4", R.drawable.mp4);
+        drawableList.put(".psd", R.drawable.psd);
+        drawableList.put(".rar", R.drawable.rar);
+        drawableList.put(".zip", R.drawable.zip);
+
+        ArrayList<Map<String, Object>> data = new ArrayList<Map<String, Object>>(fileList.size());
+        Map<String, Object> itemMap;
+        for (FileInfo info : fileList) {
+            itemMap = new HashMap<String, Object>();
+            String name = info.getName();
+            String type = info.getType();
+            itemMap.put(ATTRIBUTE_NAME_TITLE, name);
+
+            if (type.equals(KeyMap.FOLDER)) {
+                itemMap.put(ATTRIBUTE_NAME_IMAGE, R.drawable.folder);
+            } else if (type.equals(KeyMap.FILE)) {
+                Integer format = null;
+                if (name.contains(".")) {
+                    String fileType = name.toLowerCase().substring(name.lastIndexOf("."), name.length());
+                    format = drawableList.get(fileType);
+                }
+                if (format == null)
+                    format = R.drawable.blank;
+                itemMap.put(ATTRIBUTE_NAME_IMAGE, format);
+            }
+
+            if (type.equals(KeyMap.FOLDER)) {
+                itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, null);
+            } else if (type.equals(KeyMap.FILE)) {
+                if (mFileHelper.isFileOnDevice(name, info.getId(), KeyMap.EXT_STORAGE_PATH)) {
+                    itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.file_downloaded);
+                } else {
+                    itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.non_downloaded);
+                }
+            }
+            data.add(itemMap);
+        }
+
+        mAdapter = new FileListAdapter(this, data);
+        mFileListView.setAdapter(mAdapter);
+
+        mTopMenu.removeAllViewsInLayout();
+        for(TextView tv : mFolderList){
+            mTopMenu.addView(tv);
         }
     }
 
@@ -388,13 +481,13 @@ public final class MainActivity extends Activity implements DownloadListener, Up
      */
     private void createNewFolder() {
         LayoutInflater inflater = getLayoutInflater();
-        View dialoglayout = inflater.inflate(R.layout.new_folder, null);
-        final EditText folderNameEdit = (EditText) dialoglayout.findViewById(R.id.folder_name_box);
+        View layout = inflater.inflate(R.layout.new_folder, null);
+        final EditText folderNameEdit = (EditText) layout.findViewById(R.id.folder_name_box);
         AlertDialog.Builder createFolderDialogBuilder = new AlertDialog.Builder(context);
         createFolderDialogBuilder.setTitle(R.string.new_folder);
         createFolderDialogBuilder
                 .setCancelable(true)
-                .setView(dialoglayout)
+                .setView(layout)
                 .setPositiveButton(R.string.create, new DialogInterface.OnClickListener() {
 
                     public void onClick(DialogInterface dialog, int id) {
@@ -447,43 +540,55 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     }
 
     private TextView addPathButton(String label, final String ident) {
-        TextView pathView = new TextView(this);
+        TextView pathTv = new TextView(this);
         SpannableString content = new SpannableString(label);
         content.setSpan(new UnderlineSpan(), 0, label.length(), 0);
         content.setSpan(new StyleSpan(Typeface.BOLD), 0, label.length(), 0);
-        pathView.setText(content);
-        pathView.setTextSize(getResources().getDimension(R.dimen.font_size));
-        pathView.setTextColor(getResources().getColor(R.color.path_label));
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-        llp.setMargins(0, 0, 10, 0);
-        pathView.setLayoutParams(llp);
-        pathView.setOnClickListener(new OnClickListener() {
+        pathTv.setText(content);
+        pathTv.setTextSize(getResources().getDimension(R.dimen.font_size));
+        pathTv.setTextColor(getResources().getColor(R.color.path_label));
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 0, 10, 0);
+        pathTv.setLayoutParams(params);
+        pathTv.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
                 TextView pathClicked = (TextView) v;
                 updatePathList(pathClicked);
-                mCurDirId = ident;
-                task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, folderList);
+                setListVisibility(false);
+                openFolder(ident);
             }
         });
-        folderList.add(pathView);
-        return pathView;
+        mFolderList.add(pathTv);
+        return pathTv;
+    }
+
+    private void setListVisibility(boolean isReady){
+        findViewById(R.id.loadLayout).setVisibility(isReady ? View.INVISIBLE : View.VISIBLE);
+        mFileListView.setVisibility(isReady ? View.VISIBLE : View.INVISIBLE);
     }
 
     private void updatePathList(TextView tv) {
         ArrayList<TextView> tempList = new ArrayList<TextView>();
-        for (int i = 0; i < folderList.size(); i++)
-            if (tv.equals(folderList.get(i)))
+        for (int i = 0; i < mFolderList.size(); i++)
+            if (tv.equals(mFolderList.get(i)))
                 for (int k = 0; k <= i; k++)
-                    tempList.add(folderList.get(k));
-        folderList = tempList;
+                    tempList.add(mFolderList.get(k));
+        mFolderList = tempList;
+    }
+
+    private void openFolder(String folderId) {
+        mCurDirId = folderId;
+        task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, mFolderList);
     }
 
     private void openFolder(String folderId, String folderName) {
+        setListVisibility(false);
         mCurDirId = folderId;
         mCurDirName = folderName;
         addPathButton(mCurDirName, mCurDirId);
-        task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, folderList);
+        task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, mFolderList);
     }
 
     private void openFile(String name) {
@@ -522,9 +627,8 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         boolean isDownloaded = result == HttpURLConnection.HTTP_OK;
         String status = isDownloaded ? name + " " + getString(R.string.downloaded) : getString(R.string.download_failed) + " " + name;
         if (!isFolderChanged) {
-            FileListAdapter adapter = (FileListAdapter) mFileListView.getAdapter();
-            adapter.setDownloaded(position, isDownloaded);
-            adapter.notifyDataSetChanged();
+            mAdapter.setDownloaded(position-1, isDownloaded);
+            mAdapter.notifyDataSetChanged();
         }
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
         intent.putExtra(KeyMap.STATUS, status);
@@ -548,12 +652,14 @@ public final class MainActivity extends Activity implements DownloadListener, Up
 
     @Override
     public void onUploadCompleted(String name) {
-        Toast.makeText(this, getString(R.string.upload_completed) + " " + name, Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
+        intent.putExtra(KeyMap.STATUS, getString(R.string.upload_completed) + " " + name);
+        sendBroadcast(intent);
     }
 
     @Override
     public void onUploadFailed(int code) {
-        if (code == 409) {
+        if (code == HttpURLConnection.HTTP_CONFLICT) {
             Toast.makeText(this, getString(R.string.file_exists), Toast.LENGTH_LONG).show();
         } else {
             Toast.makeText(this, getString(R.string.unknown_error), Toast.LENGTH_LONG).show();
@@ -563,6 +669,9 @@ public final class MainActivity extends Activity implements DownloadListener, Up
 
     @Override
     public void onDataRecieved(String json) {
-        jsonQuery = json;
+        setListVisibility(true);
+        displayFileStructure(BoxHelper.getFolderItems(json));
+        mFileListView.onRefreshComplete();
+        mJson = json;
     }
 }

@@ -19,6 +19,7 @@ dependencies {
     compile 'org.apache.httpcomponents:httpmime:4.3'
     compile 'org.apache.httpcomponents:httpclient:4.3'
     compile project(':lib')
+    compile project(':pulltorefresh')
 }
 
 android {

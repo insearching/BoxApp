@@ -5,17 +5,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.util.Log;
-import android.view.View;
 import android.widget.LinearLayout;
-import android.widget.ListView;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.boxapp.BoxLoginActivity;
 import com.boxapp.MainActivity;
 import com.boxapp.R;
-import com.boxapp.entity.FileInfo;
+import com.markupartist.android.widget.PullToRefreshListView;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -32,16 +29,13 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public final class AsyncLib {
 
@@ -53,8 +47,7 @@ public final class AsyncLib {
     private String mCurDirId = "0";
 
     private ArrayList<TextView> mFolderList;
-    private ListView mFileListView;
-    private RelativeLayout mProgressLayout;
+    private PullToRefreshListView mFileListView;
     private LinearLayout mTopMenu;
 
     private FileHelper mFileHelper;
@@ -66,10 +59,10 @@ public final class AsyncLib {
 
         mAccessToken = accessToken;
         mRefreshToken = refreshToken;
-        mFolderList = new ArrayList<TextView>();
-        mFileListView = (ListView) ((Activity) mContext).findViewById(R.id.fileListView);
-        mProgressLayout = (RelativeLayout) ((Activity) mContext).findViewById(R.id.loadFilesProgress);
+
+        mFileListView = (PullToRefreshListView) ((Activity) mContext).findViewById(R.id.fileListView);
         mTopMenu = (LinearLayout) ((Activity) mContext).findViewById(R.id.pathLayout);
+        mFolderList = new ArrayList<TextView>();
         mFileHelper = new FileHelper(mContext);
     }
 
@@ -103,13 +96,6 @@ public final class AsyncLib {
 
     class PerformAsyncRequest extends AsyncTask<String, String, Integer> {
         @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            mFileListView.setVisibility(View.INVISIBLE);
-            mProgressLayout.setVisibility(View.VISIBLE);
-        }
-
-        @Override
         protected Integer doInBackground(String... params) {
             return null;
         }
@@ -121,9 +107,7 @@ public final class AsyncLib {
                 GetAccsesTokenTask task = new GetAccsesTokenTask();
                 task.execute(Credentials.AUTH_URL + "token");
             } else if (result >= HttpURLConnection.HTTP_OK || result <= HttpURLConnection.HTTP_PARTIAL) {
-                mProgressLayout.setVisibility(View.INVISIBLE);
-                mFileListView.setVisibility(View.VISIBLE);
-
+                mFileListView.onRefreshComplete();
             }
         }
     }
@@ -133,8 +117,8 @@ public final class AsyncLib {
         protected void onPostExecute(Integer result) {
             super.onPostExecute(result);
             if (result >= HttpURLConnection.HTTP_OK || result <= HttpURLConnection.HTTP_PARTIAL) {
-                GetData gd = new GetData();
-                gd.execute(Credentials.ROOT_URL + "folders/" + mCurDirId);
+                GetData task = new GetData();
+                task.execute(Credentials.ROOT_URL + "folders/" + mCurDirId);
             }
         }
     }
@@ -187,8 +171,8 @@ public final class AsyncLib {
                 mRefreshToken = getToken(responseStr, KeyMap.REFRESH_TOKEN);
                 mFileHelper.recordPreferences(mAccessToken, mRefreshToken);
 
-                GetData gd = new GetData();
-                gd.execute(Credentials.ROOT_URL + "folders/" + mCurDirId);
+                GetData task = new GetData();
+                task.execute(Credentials.ROOT_URL + "folders/" + mCurDirId);
             }
         }
     }
@@ -258,111 +242,7 @@ public final class AsyncLib {
             super.onPostExecute(result);
             if (result == HttpURLConnection.HTTP_OK) {
                 mListner.onDataRecieved(responseStr);
-                getFolderItems(responseStr);
             }
-        }
-    }
-
-    private void getFolderItems(String json) {
-        JSONObject data;
-        ArrayList<FileInfo> fileList = new ArrayList<FileInfo>();
-        try {
-            data = new JSONObject(json).getJSONObject(KeyMap.ITEM_COLLECTION);
-            JSONArray files = data.getJSONArray(KeyMap.ENTRIES);
-            int fileCount = files.length();
-            for (int i = 0; i < fileCount; i++) {
-                JSONObject text = files.getJSONObject(i);
-                String name = text.getString(KeyMap.NAME);
-                String type = text.getString(KeyMap.TYPE);
-                String id = text.getString(KeyMap.ID);
-                FileInfo fi = new FileInfo(name, type, id);
-                fileList.add(fi);
-            }
-            displayFileStructure(fileList);
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /**
-     * Shows file structure, including file and folders
-     * Also shows download status.
-     *
-     * @param fileList, ArrayList of files and folders info
-     *                  which have to be represented
-     */
-    private void displayFileStructure(ArrayList<FileInfo> fileList) {
-        final String ATTRIBUTE_NAME_TITLE = "title";
-        final String ATTRIBUTE_NAME_DOWNLOADED = "status";
-        final String ATTRIBUTE_NAME_IMAGE = "image";
-
-
-        Map<String, Integer> drawableList = new HashMap<String, Integer>();
-        drawableList.put(".jpg", R.drawable.jpg);
-        drawableList.put(".jpeg", R.drawable.jpeg);
-        drawableList.put(".png", R.drawable.png);
-        drawableList.put(".gif", R.drawable.gif);
-
-        drawableList.put(".doc", R.drawable.doc);
-        drawableList.put(".docx", R.drawable.docx);
-        drawableList.put(".ppt", R.drawable.ppt);
-        drawableList.put(".pptx", R.drawable.pptx);
-
-        drawableList.put(".pdf", R.drawable.pdf);
-        drawableList.put(".txt", R.drawable.txt);
-        drawableList.put(".exe", R.drawable.exe);
-        drawableList.put(".mp3", R.drawable.mp3);
-        drawableList.put(".mp4", R.drawable.mp4);
-        drawableList.put(".psd", R.drawable.psd);
-        drawableList.put(".rar", R.drawable.rar);
-        drawableList.put(".zip", R.drawable.zip);
-
-        ArrayList<Map<String, Object>> data = new ArrayList<Map<String, Object>>(fileList.size());
-        Map<String, Object> itemMap;
-        for (int i = 0; i < fileList.size(); i++) {
-            itemMap = new HashMap<String, Object>();
-            FileInfo info = fileList.get(i);
-            String name = info.getName();
-            String type = info.getType();
-            itemMap.put(ATTRIBUTE_NAME_TITLE, name);
-
-            if (type.equals(KeyMap.FOLDER)) {
-                itemMap.put(ATTRIBUTE_NAME_IMAGE, R.drawable.folder);
-            } else if (type.equals(KeyMap.FILE)) {
-                Integer format = null;
-                if (name.contains(".")) {
-                    String fileType = name.toLowerCase().substring(name.lastIndexOf("."), name.length());
-                    format = drawableList.get(fileType);
-                }
-                if (format == null)
-                    format = R.drawable.blank;
-                itemMap.put(ATTRIBUTE_NAME_IMAGE, format);
-            }
-
-            if (type.equals(KeyMap.FOLDER)) {
-                itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, null);
-            } else if (type.equals(KeyMap.FILE)) {
-                if (mFileHelper.isFileOnDevice(name, info.getId(), KeyMap.EXT_STORAGE_PATH)) {
-                    itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.file_downloaded);
-                } else {
-                    itemMap.put(ATTRIBUTE_NAME_DOWNLOADED, R.drawable.non_downloaded);
-                }
-            }
-            data.add(itemMap);
-        }
-
-        FileListAdapter adapter = new FileListAdapter(mContext, data);
-        mFileListView.setAdapter(adapter);
-        displayPathButtons();
-    }
-
-    /**
-     * Shows directory buttons
-     */
-    private void displayPathButtons() {
-        mTopMenu.removeAllViewsInLayout();
-        for(TextView tv : mFolderList){
-            mTopMenu.addView(tv);
         }
     }
 

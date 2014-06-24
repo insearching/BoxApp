@@ -17,6 +17,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.util.ArrayList;
 
 /**
  * Created by insearching on 18.06.2014.
@@ -71,8 +72,28 @@ public class BoxHelper {
         return info;
     }
 
+    public static ArrayList<FileInfo> getFolderItems(String json) {
+        ArrayList<FileInfo> fileList = new ArrayList<FileInfo>();
+        try {
+            JSONObject data = new JSONObject(json).getJSONObject(KeyMap.ITEM_COLLECTION);
+            JSONArray files = data.getJSONArray(KeyMap.ENTRIES);
+            int fileCount = files.length();
+            for (int i = 0; i < fileCount; i++) {
+                JSONObject text = files.getJSONObject(i);
+                String name = text.getString(KeyMap.NAME);
+                String type = text.getString(KeyMap.TYPE);
+                String id = text.getString(KeyMap.ID);
+                FileInfo fi = new FileInfo(name, type, id);
+                fileList.add(fi);
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return fileList;
+    }
+
     public static void updateDownloadNotification(Context context, String fileName, String action, int progress, int smallIcon, boolean isInDeterminated) {
-        NotificationManager nm = (NotificationManager)
+        NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
 
         String contentText = !isInDeterminated ? action + " " + progress + "%" : action;
@@ -85,7 +106,7 @@ public class BoxHelper {
                 .setSmallIcon(smallIcon)
                 .setProgress(100, progress, isInDeterminated)
                 .setTicker(action + " " + fileName);
-        nm.notify(0, builder.build());
+        manager.notify(0, builder.build());
     }
 
     /**
@@ -102,7 +123,7 @@ public class BoxHelper {
                 1, notificationIntent,
                 PendingIntent.FLAG_CANCEL_CURRENT);
 
-        NotificationManager nm = (NotificationManager)
+        NotificationManager manager = (NotificationManager)
                 context
                         .getSystemService(Context.NOTIFICATION_SERVICE);
 
@@ -112,7 +133,8 @@ public class BoxHelper {
                 .setContentTitle(title)
                 .setContentText(text)
                 .setLargeIcon(BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_launcher))
+                .setLights(R.color.blue, 1000, 5000)
                 .setSmallIcon(smallIcon);
-        nm.notify(0, builder.build());
+        manager.notify(0, builder.build());
     }
 }

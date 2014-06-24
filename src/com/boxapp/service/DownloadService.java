@@ -152,8 +152,8 @@ public class DownloadService extends Service {
                 BoxHelper.showNotification(mContext, fileName, getString(R.string.download_completed), path, android.R.drawable.stat_sys_download_done);
 
             } else {
-                BoxHelper.showNotification(mContext, fileName, getString(R.string.download_completed), path, android.R.drawable.stat_sys_download_done);
-                Toast.makeText(mContext, getString(R.string.download_failed), Toast.LENGTH_LONG).show();
+                BoxHelper.showNotification(mContext, fileName, getString(R.string.download_failed), path, android.R.drawable.stat_notify_error);
+                Toast.makeText(mContext, getString(R.string.download_failed) + " " + result, Toast.LENGTH_LONG).show();
             }
             stopSelf(startId);
         }
