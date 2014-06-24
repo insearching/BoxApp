@@ -92,6 +92,18 @@ public class BoxHelper {
         return fileList;
     }
 
+    public static String getParentInfo(String json, String tag){
+        String value = null;
+
+        try {
+            JSONObject object = new JSONObject(json).getJSONObject(KeyMap.PARENT);
+            value = object.getString(tag);
+        } catch (JSONException ex) {
+            ex.printStackTrace();
+        }
+        return value;
+    }
+
     public static void updateDownloadNotification(Context context, String fileName, String action, int progress, int smallIcon, boolean isInDeterminated) {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);

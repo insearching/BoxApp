@@ -96,7 +96,6 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     private static final int LOGOUT = R.id.menu_logout;
 
     private ArrayList<TextView> mFolderList;
-    private final Context context = this;
     private AsyncLib task;
     private TextView homeButton;
     private boolean isFolderChanged = false;
@@ -143,7 +142,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         SharedPreferences userDetails = getSharedPreferences(KeyMap.USER_DETAILS, MODE_PRIVATE);
         mAccessToken = userDetails.getString(KeyMap.ACCESS_TOKEN, "");
         mRefreshToken = userDetails.getString(KeyMap.REFRESH_TOKEN, "");
-        task = new AsyncLib(context, mAccessToken, mRefreshToken);
+        task = new AsyncLib(this, mAccessToken, mRefreshToken);
 
         File folder = new File(KeyMap.EXT_STORAGE_PATH);
         if (folder.exists() && folder.isDirectory()) {
@@ -163,8 +162,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
                 task.getData(Credentials.ROOT_URL + "folders/", mCurDirId, mFolderList);
             }
         } else {
-            Toast.makeText(MainActivity.this, "No internet connection." +
-                    "Please, check your connection, and try again!", Toast.LENGTH_LONG).show();
+            Toast.makeText(MainActivity.this, getString(R.string.no_internet_connection), Toast.LENGTH_LONG).show();
         }
 
 
@@ -209,8 +207,9 @@ public final class MainActivity extends Activity implements DownloadListener, Up
     @Override
     protected void onResume() {
         super.onResume();
-        if(mJson != null)
+        if (mJson != null)
             displayFileStructure(BoxHelper.getFolderItems(mJson));
+        setListVisibility(true);
     }
 
     @Override
@@ -470,7 +469,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         mFileListView.setAdapter(mAdapter);
 
         mTopMenu.removeAllViewsInLayout();
-        for(TextView tv : mFolderList){
+        for (TextView tv : mFolderList) {
             mTopMenu.addView(tv);
         }
     }
@@ -483,7 +482,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         LayoutInflater inflater = getLayoutInflater();
         View layout = inflater.inflate(R.layout.new_folder, null);
         final EditText folderNameEdit = (EditText) layout.findViewById(R.id.folder_name_box);
-        AlertDialog.Builder createFolderDialogBuilder = new AlertDialog.Builder(context);
+        AlertDialog.Builder createFolderDialogBuilder = new AlertDialog.Builder(this);
         createFolderDialogBuilder.setTitle(R.string.new_folder);
         createFolderDialogBuilder
                 .setCancelable(true)
@@ -517,7 +516,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         View dialoglayout = inflater.inflate(R.layout.rename_dialog, null);
         final EditText folderNameEdit = (EditText) dialoglayout.findViewById(R.id.folder_name_box);
         folderNameEdit.setText(name);
-        AlertDialog.Builder renameDialogBuilder = new AlertDialog.Builder(context);
+        AlertDialog.Builder renameDialogBuilder = new AlertDialog.Builder(this);
         renameDialogBuilder.setTitle(R.string.rename);
         renameDialogBuilder
                 .setCancelable(true)
@@ -564,7 +563,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         return pathTv;
     }
 
-    private void setListVisibility(boolean isReady){
+    private void setListVisibility(boolean isReady) {
         findViewById(R.id.loadLayout).setVisibility(isReady ? View.INVISIBLE : View.VISIBLE);
         mFileListView.setVisibility(isReady ? View.VISIBLE : View.INVISIBLE);
     }
@@ -627,7 +626,7 @@ public final class MainActivity extends Activity implements DownloadListener, Up
         boolean isDownloaded = result == HttpURLConnection.HTTP_OK;
         String status = isDownloaded ? name + " " + getString(R.string.downloaded) : getString(R.string.download_failed) + " " + name;
         if (!isFolderChanged) {
-            mAdapter.setDownloaded(position-1, isDownloaded);
+            mAdapter.setDownloaded(position - 1, isDownloaded);
             mAdapter.notifyDataSetChanged();
         }
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
