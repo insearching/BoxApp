@@ -21,6 +21,7 @@ local.properties
 .classpath
 .project
 build
+.idea
 # Windows thumbnail db
 .DS_Store
 
