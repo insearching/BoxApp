@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resources>
+    <color name="app_bg">#ffffffff</color>
+	<color name="notepad_paper">#AAFFFF99</color>
+	<color name="notepad_lines">#AAFFFF99</color>
+	<color name="notepad_margin">#AAFFFF99</color>
+	<color name="notepad_text">#354545</color>
+	<color name="light_violet">#ddc8bfce</color>
+	<color name="dark_violet">#dd570089</color>
+	<color name="actionbar_title_color">#224894</color>
+	<color name="black">#FF000000</color>
+	<color name="blue">#ff2199ff</color>
+	<color name="dark_blue">#ff0e69b7</color>
+</resources>
