@@ -6,13 +6,9 @@ package com.boxapp.utils;
 
 import android.util.Log;
 
-import com.boxapp.entity.ResponseEntity;
-
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -125,38 +121,38 @@ public class MultipartUtility {
         Log.d("Multipart", "Uploading finished");
     }
 
-    /**
-     * Completes the request and receives response from the server.
-     *
-     * @return a list of Strings as response in case the server returned
-     * status OK, otherwise an exception is thrown.
-     * @throws IOException
-     */
-    public ResponseEntity finish() throws IOException {
-
-        writer.append(LINE_FEED).flush();
-        writer.append("--" + boundary + "--").append(LINE_FEED);
-        writer.close();
-
-        // checks server's status code first
-        int status = httpConn.getResponseCode();
-        ResponseEntity entity = new ResponseEntity(status);
-        if (status == HttpURLConnection.HTTP_CREATED) {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(
-                    httpConn.getInputStream()));
-            StringBuilder builder = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                builder.append(line);
-            }
-            reader.close();
-            httpConn.disconnect();
-            entity.setInfo(BoxHelper.findObject(builder.toString(), 0));
-
-        }
-
-        return entity;
-    }
+//    /**
+//     * Completes the request and receives response from the server.
+//     *
+//     * @return a list of Strings as response in case the server returned
+//     * status OK, otherwise an exception is thrown.
+//     * @throws IOException
+//     */
+//    public ResponseEntity finish() throws IOException {
+//
+//        writer.append(LINE_FEED).flush();
+//        writer.append("--" + boundary + "--").append(LINE_FEED);
+//        writer.close();
+//
+//        // checks server's status code first
+//        int status = httpConn.getResponseCode();
+//        ResponseEntity entity = new ResponseEntity(status);
+//        if (status == HttpURLConnection.HTTP_CREATED) {
+//            BufferedReader reader = new BufferedReader(new InputStreamReader(
+//                    httpConn.getInputStream()));
+//            StringBuilder builder = new StringBuilder();
+//            String line;
+//            while ((line = reader.readLine()) != null) {
+//                builder.append(line);
+//            }
+//            reader.close();
+//            httpConn.disconnect();
+//            entity.setInfo(BoxHelper.findObject(builder.toString(), 0));
+//
+//        }
+//
+//        return entity;
+//    }
 
     public interface UploadStatusCallback {
         public void onProgressUpdate(Integer... progress);

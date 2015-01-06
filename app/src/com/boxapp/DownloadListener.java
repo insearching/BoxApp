@@ -2,8 +2,9 @@ package com.boxapp;
 
 public interface DownloadListener {
 	
-	public void onDownloadStarted(String name);
-	public void onProgressChanged(Integer progress, String name, String action);
-	public void onDownloadCompleted(int position, String name, Integer code);
+	public void onDownloadStarted(String fileName);
+	public void onProgressChanged(int progress, String fileName, String action);
+	public void onDownloadCompleted(String fileId, String fileName);
+    public void onDownloadFailed(String fileName);
 	
 }

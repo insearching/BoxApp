@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
+        android:name=".BoxApplication"
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
         android:logo="@drawable/ic_logo"
@@ -48,7 +49,7 @@
         </receiver>
 
         <activity
-            android:name=".BoxLoginActivity"
+            android:name=".LoginActivity"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar">
         </activity>
     </application>

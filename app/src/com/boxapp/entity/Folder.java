@@ -6,8 +6,6 @@ package com.boxapp.entity;
 public class Folder {
     private String id;
 
-
-
     private String label;
     private String parentId;
 

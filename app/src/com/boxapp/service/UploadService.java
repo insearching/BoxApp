@@ -14,7 +14,7 @@ import com.boxapp.UploadListener;
 import com.boxapp.entity.ResponseEntity;
 import com.boxapp.utils.BoxHelper;
 import com.boxapp.utils.FileHelper;
-import com.boxapp.utils.KeyMap;
+import com.boxapp.utils.KeyHelper;
 import com.boxapp.utils.MultipartUtility;
 
 import org.apache.http.protocol.HTTP;
@@ -94,10 +94,10 @@ public class UploadService extends Service {
             ResponseEntity entity = null;
             try {
                 MultipartUtility multipart = new MultipartUtility(this, param[0], param[1], HTTP.UTF_8);
-                multipart.addFormField(KeyMap.PARENT_ID, param[2]);
-                multipart.addFilePart(KeyMap.FILE, new File(path));
+                multipart.addFormField(KeyHelper.PARENT_ID, param[2]);
+                multipart.addFilePart(KeyHelper.FILE, new File(path));
 
-                entity = multipart.finish();
+//                entity = multipart.finish();
 
             } catch (IOException ex) {
                 Log.d(TAG, ex.getMessage());
@@ -132,14 +132,14 @@ public class UploadService extends Service {
                 if (uploadListener != null)
                     uploadListener.onUploadCompleted(fileName);
 
-                BoxHelper.showNotification(mContext, fileName, getString(R.string.upload_completed), path, android.R.drawable.stat_sys_upload_done);
+                BoxHelper.showNotification(mContext, fileName, getString(R.string.upload_completed), android.R.drawable.stat_sys_upload_done);
                 FileHelper helper = new FileHelper(getApplicationContext());
-                helper.copyFileOnDevice(path, KeyMap.EXT_STORAGE_PATH + "/" + fileName);
-                helper.saveFileData(entity.getInfo().getId(), fileName);
+                helper.copyFileOnDevice(path, KeyHelper.EXT_STORAGE_PATH + "/" + fileName);
+                helper.saveFileData(mContext, String.valueOf(entity.getInfo().getId()));
             } else {
                 if (uploadListener != null)
                     uploadListener.onUploadFailed(result);
-                BoxHelper.showNotification(mContext, fileName, getString(R.string.upload_failed), path, android.R.drawable.stat_sys_upload_done);
+                BoxHelper.showNotification(mContext, fileName, getString(R.string.upload_failed), android.R.drawable.stat_sys_upload_done);
             }
             stopSelf(startId);
         }

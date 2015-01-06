@@ -6,14 +6,14 @@ package com.boxapp.entity;
 public class ResponseEntity {
 
     private int statusCode;
-    private FileInfo info;
+    private Item info;
 
     public ResponseEntity(int statusCode) {
         this.statusCode = statusCode;
         info = null;
     }
 
-    public FileInfo getInfo() {
+    public Item getInfo() {
         return info;
     }
 
@@ -21,7 +21,7 @@ public class ResponseEntity {
         return statusCode;
     }
 
-    public void setInfo(FileInfo info) {
+    public void setInfo(Item info) {
         this.info = info;
     }
 }

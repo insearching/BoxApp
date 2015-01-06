@@ -11,10 +11,9 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ListView;
 
-import com.boxapp.entity.FileInfo;
+import com.boxapp.entity.Item;
 import com.boxapp.utils.FileListAdapter;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,7 +40,7 @@ public class ExplorerActivity extends Activity {
         mFileListView.setOnItemClickListener(new OnItemClickListener() {
 			@Override
 			public void onItemClick(AdapterView<?> a,  View v,int position, long id) {
-				File file = new File(path.get(position));
+				java.io.File file = new java.io.File(path.get(position));
 				Intent intent = getIntent();
 				Log.i("TAG", path.get(position));
 				if (file.isDirectory()) {
@@ -63,32 +62,32 @@ public class ExplorerActivity extends Activity {
 	}
 	
 	private void getDir(String dirPath) throws Exception{
-		ArrayList<FileInfo> fileList = new ArrayList<FileInfo>();
-		path = new ArrayList<String>();
-		File f = new File(dirPath);
-		File[] files = f.listFiles();
-		
-		if(!dirPath.equals(root)) {
-			//path.add(root);
-			path.add(f.getParent());
-			FileInfo fi = new FileInfo("../", "folder");
-			fileList.add(fi);
-		}
-		
-		for(int i=0; i < files.length; i++) {
-			File file = files[i];
-			String name = file.getName();
-			path.add(file.getPath());
-			FileInfo fi = null;
-			if(file.isDirectory()) {
-				fi = new FileInfo(name, "folder");
-			}
-			else {
-				fi = new FileInfo(name, "file");
-			}
-			fileList.add(fi);
-		}
-		displayFileStructure(fileList);
+//		ArrayList<Item> fileList = new ArrayList<Item>();
+//		path = new ArrayList<String>();
+//		java.io.File f = new java.io.File(dirPath);
+//		java.io.File[] files = f.listFiles();
+//
+//		if(!dirPath.equals(root)) {
+//			//path.add(root);
+//			path.add(f.getParent());
+//			Item fi = new Item("../", "folder");
+//			fileList.add(fi);
+//		}
+//
+//		for(int i=0; i < files.length; i++) {
+//			java.io.File file = files[i];
+//			String name = file.getName();
+//			path.add(file.getPath());
+//			Item fi = null;
+//			if(file.isDirectory()) {
+//				fi = new Item(name, "folder");
+//			}
+//			else {
+//				fi = new Item(name, "file");
+//			}
+//			fileList.add(fi);
+//		}
+//		displayFileStructure(fileList);
 	}
 	
 	/**
@@ -97,7 +96,7 @@ public class ExplorerActivity extends Activity {
 	 * @param fileList, ArrayList of files and folders info
 	 * which have to be represented
 	 */
-	private void displayFileStructure(ArrayList<FileInfo> fileList){
+	private void displayFileStructure(ArrayList<Item> fileList){
 		final String ATTRIBUTE_NAME_TITLE = "title";
 		final String ATTRIBUTE_NAME_IMAGE = "image";
 		
@@ -126,19 +125,19 @@ public class ExplorerActivity extends Activity {
 		Map<String, Object> itemMap;
 		for (int i = 0; i < fileList.size(); i++){
 			itemMap = new HashMap<String, Object>();
-			FileInfo fi = (FileInfo)fileList.get(i);
+			Item fi = (Item)fileList.get(i);
 			String name = fi.getName();
-			String type = fi.getType();
+			Item.Type type = fi.getType();
 			itemMap.put(ATTRIBUTE_NAME_TITLE, name);
 			
-			if(type.equals("folder")) {
-				itemMap.put(ATTRIBUTE_NAME_IMAGE, R.drawable.folder);
+			if(type == Item.Type.FOLDER) {
+				itemMap.put(ATTRIBUTE_NAME_IMAGE, R.drawable.ic_folder);
 			}
-			else if(type.equals("file")) {
+			else {
 				String fileType = name.toLowerCase().substring(name.lastIndexOf(""), name.length());
 				Integer format = drawableList.get(fileType);
 				if(format == null)
-					format = R.drawable.blank;
+					format = R.drawable.ic_unknown_file_type;
 				itemMap.put(ATTRIBUTE_NAME_IMAGE, format);
 			}
 			data.add(itemMap);

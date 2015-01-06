@@ -44,5 +44,9 @@
     <string name="uploading">Uploading</string>
     <string name="upload_failed">Upload failed</string>
     <string name="no_internet_connection">No internet connection. Please, check your connection, and try again!</string>
+    <string name="folder_already_exists">Folder with such name exists already</string>
+    <string name="file_successfully_copied">File successfully copied</string>
+    <string name="file_sucessfully_deleted">File successfully deleted</string>
+    <string name="download_started">Download started...</string>
 
 </resources>
