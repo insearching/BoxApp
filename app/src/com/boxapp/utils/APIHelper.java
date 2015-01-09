@@ -368,10 +368,6 @@ public final class APIHelper {
         });
     }
 
-    private void publishProgress(int progress, int total) {
-        Log.d("DOWNLOAD PROGRESS", "Downloaded " + progress + " of " + total);
-    }
-
 //    public void renameItem(String requestUrl, String data,
 //                           String oldName, String newName, String ident) {
 //        UpdateData put = new UpdateData();
@@ -723,9 +719,6 @@ public final class APIHelper {
 
         @DELETE("/{item_type}/{file_id}")
         void deleteFile(@Path("file_id") String fileId, @Path("item_type") String itemType, retrofit.Callback<Object> callback);
-
-        @GET("/files/{file_id}/content")
-        void downloadFile(@Path("file_id") String fileId, retrofit.Callback<Response> callback);
     }
 
     public class ItemTypeAdapterFactory implements TypeAdapterFactory {

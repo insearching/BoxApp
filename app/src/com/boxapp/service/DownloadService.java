@@ -254,27 +254,6 @@ public class DownloadService extends Service {
 //        }
 //    }
 
-//    private File createFile(String path, String fileName) {
-//        String sFolder = path + "/";
-//        File file = new File(sFolder);
-//        if (!file.exists())
-//            file.mkdirs();
-//
-//        try {
-//            file = new File(sFolder + fileName);
-//
-//            if (!file.createNewFile()) {
-//                file.delete();
-//                if (!file.createNewFile()) {
-//                    return null;
-//                }
-//            }
-//        } catch (Exception e) {
-//            return null;
-//        }
-//        return file;
-//    }
-
     public void attachListener(DownloadListener callback) {
         this.callback = callback;
     }

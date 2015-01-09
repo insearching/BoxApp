@@ -70,7 +70,6 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
     private Item.Type mCopyType = null;
     private PullToRefreshListView mFileListView;
     private ItemAdapter mAdapter;
-    private FileHelper mFileHelper;
 //    private ArrayList<Folder> mPathList;
 
     private DownloadService mDownloadService;
@@ -101,7 +100,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
                 public void onDownloadStarted(String fileName) {
                     BoxHelper.showNotification(MainActivity.this, fileName, getString(R.string.download_started), android.R.drawable.stat_sys_download);
                     Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-                    intent.putExtra(KeyHelper.STATUS, getString(R.string.downloading) + " " + fileName);
+                    intent.putExtra(KeyHelper.MESSAGE, getString(R.string.downloading) + " " + fileName);
                     sendBroadcast(intent);
                 }
 
@@ -115,7 +114,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
 
                     BoxHelper.showNotification(MainActivity.this, fileName, getString(R.string.download_completed), android.R.drawable.stat_sys_download_done);
                     Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-                    intent.putExtra(KeyHelper.STATUS, true);
+                    intent.putExtra(KeyHelper.MESSAGE, "Finished downloading " + fileName);
                     sendBroadcast(intent);
                 }
 
@@ -123,7 +122,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
                 public void onProgressChanged(int progress, String fileName, String action) {
                     BoxHelper.updateDownloadNotification(MainActivity.this, fileName, getString(R.string.downloading), progress, android.R.drawable.stat_sys_download, false);
                     Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-                    intent.putExtra(KeyHelper.STATUS, action + " " + fileName);
+                    intent.putExtra(KeyHelper.MESSAGE, action + " " + fileName);
                     intent.putExtra(KeyHelper.PROGRESS, progress);
                     sendBroadcast(intent);
                 }
@@ -132,7 +131,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
                 public void onDownloadFailed(String fileName) {
                     BoxHelper.showNotification(MainActivity.this, fileName, getString(R.string.download_failed), android.R.drawable.stat_notify_error);
                     Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-                    intent.putExtra(KeyHelper.STATUS, false);
+                    intent.putExtra(KeyHelper.MESSAGE, "Failed to download " + fileName);
                     sendBroadcast(intent);
                 }
             });
@@ -163,7 +162,6 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
         setContentView(R.layout.activity_main);
         mFileListView = (PullToRefreshListView) findViewById(R.id.fileListView);
 
-        mFileHelper = new FileHelper(this);
 //        mPathList = new ArrayList<Folder>();
 
         getSupportActionBar().setHomeButtonEnabled(true);
@@ -258,7 +256,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
             case (OPEN):
                 if (type.equals(KeyHelper.FILE)) {
                     if (isFileOnDevice(itemId)) {
-                        openFile(name);
+                        openFile(String.valueOf(String.valueOf(itemId).hashCode()), name);
                     }
                 } else if (type.equals(KeyHelper.FOLDER)) {
                     openFolder(itemId, name);
@@ -560,7 +558,8 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
     private void openFile(String id, String name) {
         Intent openIntent = new Intent(android.content.Intent.ACTION_VIEW);
         java.io.File file = new java.io.File(KeyHelper.EXT_STORAGE_PATH + "/" + id);
-        String extension = android.webkit.MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(file).toString().toLowerCase());
+//        String extension = android.webkit.MimeTypeMap.getFileExtensionFromUrl(Uri.fromFile(file).toString().toLowerCase());
+        String extension = name.substring((name.lastIndexOf(".") + 1), name.length());
         String mimetype = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
         openIntent.setDataAndType(Uri.fromFile(file), mimetype);
         startActivity(openIntent);
@@ -583,14 +582,14 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
     @Override
     public void onUploadStarted(String name) {
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra(KeyHelper.STATUS, getString(R.string.uploading) + " " + name);
+        intent.putExtra(KeyHelper.MESSAGE, getString(R.string.uploading) + " " + name);
         sendBroadcast(intent);
     }
 
     @Override
     public void onProgressChanged(Integer progress, String name, String action) {
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra(KeyHelper.STATUS, action + " " + name);
+        intent.putExtra(KeyHelper.MESSAGE, action + " " + name);
         intent.putExtra(KeyHelper.PROGRESS, progress);
         sendBroadcast(intent);
     }
@@ -598,7 +597,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
     @Override
     public void onUploadCompleted(String name) {
         Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra(KeyHelper.STATUS, getString(R.string.upload_completed) + " " + name);
+        intent.putExtra(KeyHelper.MESSAGE, getString(R.string.upload_completed) + " " + name);
         sendBroadcast(intent);
     }
 
@@ -622,6 +621,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
             openFolder(item.getId(), "");
         } else {
             String name = item.getName();
+            long itemId = item.getId();
             Item.Type type = item.getType();
             if (type == Item.Type.FOLDER) {
                 mParentFolder = mCurrentFolder;
@@ -629,7 +629,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
             } else {
                 try {
                     if (isFileOnDevice(id)) {
-                        openFile(String.valueOf(String.valueOf(id).hashCode()), type);
+                        openFile(String.valueOf(String.valueOf(itemId).hashCode()), name);
                     } else {
                         item.setDownloadStatus(new DownloadStatus(false, 1));
                         mAdapter.notifyDataSetChanged();

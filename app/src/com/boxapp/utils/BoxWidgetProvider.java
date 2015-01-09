@@ -69,16 +69,16 @@ public class BoxWidgetProvider extends AppWidgetProvider {
 		ComponentName thisAppWidget = new ComponentName(context.getPackageName(), BoxWidgetProvider.class.getName());
 		int[] appWidgetIds = appWidgetManager.getAppWidgetIds(thisAppWidget);
 		if(intent.getAction().equals(ACTION_STATUS_CHANGED)){
-			if(intent.hasExtra("status")){
-				downloadStatus = intent.getStringExtra("status");
+			if(intent.hasExtra(KeyHelper.MESSAGE)){
+				downloadStatus = intent.getStringExtra(KeyHelper.MESSAGE);
 				onUpdate(context, appWidgetManager, appWidgetIds);
 			}
-			if(intent.hasExtra("progress")){
-				progress = intent.getIntExtra("progress", 0);
+			if(intent.hasExtra(KeyHelper.PROGRESS)){
+				progress = intent.getIntExtra(KeyHelper.PROGRESS, 0);
 				onUpdate(context, appWidgetManager, appWidgetIds);
 			}
 		}
-		if(intent.getAction().equals(ACTION_TEXT_CLICKED)){
+		else if(intent.getAction().equals(ACTION_TEXT_CLICKED)){
 			downloadStatus = null;
 			Intent i = new Intent(context, MainActivity.class);
 			i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
