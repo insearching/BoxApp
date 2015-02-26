@@ -20,14 +20,13 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.content.SharedPreferences.Editor;
-import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.ActionBarActivity;
+import android.support.v7.view.ActionMode;
 import android.util.Log;
-import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -54,22 +53,23 @@ import com.boxapp.utils.KeyHelper;
 import com.handmark.pulltorefresh.library.PullToRefreshBase;
 import com.handmark.pulltorefresh.library.PullToRefreshListView;
 
-import java.io.File;
 import java.net.HttpURLConnection;
 import java.util.List;
 
 import retrofit.client.Response;
 
-public final class MainActivity extends ActionBarActivity implements UploadListener, OnItemClickListener, APIHelper.RestListener, FileHelper.ProgressUpdateListener {
+public final class MainActivity extends ActionBarActivity implements UploadListener, OnItemClickListener,
+        AdapterView.OnItemLongClickListener, ActionMode.Callback,
+        APIHelper.RestListener, FileHelper.ProgressUpdateListener {
 
     private static final String TAG = "BoxApp";
     private long mCurrentFolder = 0;
     private long mParentFolder = -1;
     private String mCurrentFolderName = "All files";
     private long mCopyId = 0;
-    private Item.Type mCopyType = null;
     private PullToRefreshListView mFileListView;
     private ItemAdapter mAdapter;
+    private ActionMode mActionMode;
 //    private ArrayList<Folder> mPathList;
 
     private DownloadService mDownloadService;
@@ -89,7 +89,6 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
     private static final int LOGOUT = R.id.menu_logout;
 
     private APIHelper helper = null;
-    private Menu menu;
 
     private ServiceConnection mDownloadConnection = new ServiceConnection() {
         @Override
@@ -156,6 +155,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
         }
     };
 
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -206,52 +206,329 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
         });
 
         ListView actualListView = mFileListView.getRefreshableView();
-        actualListView.setOnCreateContextMenuListener(this);
+        actualListView.setOnItemLongClickListener(this);
+//        actualListView.setOnCreateContextMenuListener(this);
         registerForContextMenu(actualListView);
+    }
 
+//    @Override
+//    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+//        super.onCreateContextMenu(menu, v, menuInfo);
+//        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
+//
+//        Item item = mAdapter.getItem(info.position - 1);
+//        String name = item.getName();
+//        long itemId = item.getId();
+//        Item.Type type = item.getType();
+//        menu.setHeaderTitle(getString(R.string.select_option));
+//
+//        if (type == Item.Type.FILE) {
+//            if (isFileOnDevice(itemId))
+//                menu.add(0, OPEN, Menu.NONE, R.string.open);
+//            else
+//                menu.add(0, DOWNLOAD, Menu.NONE, R.string.download);
+//        } else if (type.equals(KeyHelper.FOLDER)) {
+//            menu.add(0, OPEN, Menu.NONE, R.string.open);
+//        }
+//        menu.add(0, COPY, Menu.NONE, R.string.copy);
+//        if (mCopyId != 0) {
+//            menu.add(0, PASTE, Menu.NONE, R.string.paste);
+//        }
+//        menu.add(0, DELETE, Menu.NONE, R.string.delete);
+//        menu.add(0, RENAME, Menu.NONE, R.string.renameItem);
+//    }
+//
+//    @Override
+//    public boolean onContextItemSelected(MenuItem menuItem) {
+//        super.onContextItemSelected(menuItem);
+//        AdapterView.AdapterContextMenuInfo info;
+//        info = (AdapterView.AdapterContextMenuInfo) menuItem.getMenuInfo();
+//        int optionSelected = menuItem.getItemId();
+//
+//        Item item = mAdapter.getItem(info.position - 1);
+//        long itemId = item.getId();
+//        String name = item.getName();
+//        Item.Type type = item.getType();
+//        int etag = item.getEtag();
+//        MenuItem itemPaste = menu.findItem(PASTE_OPTION);
+//
+//        switch (optionSelected) {
+//            case (OPEN):
+//                if (type.equals(KeyHelper.FILE)) {
+//                    if (isFileOnDevice(itemId)) {
+//                        openFile(String.valueOf(String.valueOf(itemId).hashCode()), name);
+//                    }
+//                } else if (type.equals(KeyHelper.FOLDER)) {
+//                    openFolder(itemId, name);
+//                }
+//                return true;
+//
+//            case (COPY):
+//                mCopyId = itemId;
+//                mCopyType = type;
+//                itemPaste.setVisible(true);
+//                return true;
+//
+//            case (PASTE):
+//                mCopyId = 0;
+//                itemPaste.setVisible(false);
+//                helper.copyFile(String.valueOf(mCopyId), String.valueOf(mCurrentFolder));
+//                return true;
+//
+//            case (DELETE):
+//                helper.deleteItem(String.valueOf(itemId), String.valueOf(etag), type == Item.Type.FOLDER);
+//
+//                return true;
+//
+//            case (DOWNLOAD):
+//                if (type == Item.Type.FILE)
+//                    helper.downloadFile(mDownloadService, String.valueOf(itemId), name);
+//                return true;
+//
+//            case (RENAME):
+////                renameItem(ident, name, type);
+//                return true;
+//        }
+//        return false;
+//    }
+
+//    private File createFile(String path, String fileName) {
+//        String sFolder = path + "/";
+//        File file = new File(sFolder);
+//        if (!file.exists())
+//            file.mkdirs();
+//
+//        try {
+//            file = new File(sFolder + fileName);
+//
+//            if (!file.createNewFile()) {
+//                file.delete();
+//                if (!file.createNewFile()) {
+//                    return null;
+//                }
+//            }
+//        } catch (Exception e) {
+//            return null;
+//        }
+//        return file;
+//    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
     }
 
     @Override
-    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
-        super.onCreateContextMenu(menu, v, menuInfo);
-        AdapterView.AdapterContextMenuInfo info = (AdapterView.AdapterContextMenuInfo) menuInfo;
+    public boolean onOptionsItemSelected(MenuItem item) {
+        super.onOptionsItemSelected(item);
 
-        Item item = mAdapter.getItem(info.position - 1);
-        String name = item.getName();
+        switch (item.getItemId()) {
+            case android.R.id.home:
+//                homeButton.performClick();
+//                goToParentFolder();
+                return true;
+
+            case (UPLOAD):
+//                Intent intent = new Intent(getBaseContext(), ExplorerActivity.class);
+//                startActivityForResult(intent, 1);
+                return false;
+
+            case (CREATE_FOLDER):
+//                createNewFolder();
+                return true;
+
+            case (PASTE_OPTION):
+                return true;
+//                String url = Credentials.ROOT_URL + mCopyType + "s/" + mCopyId + "/copy";
+//                String data = "{\"parent\": {\"id\" : " + mCurrentFolder + "}}";
+////                mCopyId = null;
+//                MenuItem itemPaste = menu.findItem(PASTE_OPTION);
+//                itemPaste.setVisible(false);
+//                if (data != null)
+////                    helper.createItem(url, data);
+//                    break;
+
+            case (LOGOUT):
+                return true;
+//                SharedPreferences userDetails = getSharedPreferences(KeyHelper.USER_DETAILS, MODE_PRIVATE);
+//                Editor edit = userDetails.edit();
+//                edit.clear();
+//                edit.commit();
+//                BoxHelper.authorize(this);
+        }
+        return false;
+    }
+
+    @Override
+    public void onUploadStarted(String name) {
+        Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
+        intent.putExtra(KeyHelper.MESSAGE, getString(R.string.uploading) + " " + name);
+        sendBroadcast(intent);
+    }
+
+    @Override
+    public void onProgressChanged(Integer progress, String name, String action) {
+        Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
+        intent.putExtra(KeyHelper.MESSAGE, action + " " + name);
+        intent.putExtra(KeyHelper.PROGRESS, progress);
+        sendBroadcast(intent);
+    }
+
+    @Override
+    public void onUploadCompleted(String name) {
+        Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
+        intent.putExtra(KeyHelper.MESSAGE, getString(R.string.upload_completed) + " " + name);
+        sendBroadcast(intent);
+    }
+
+    @Override
+    public void onUploadFailed(int code) {
+        if (code == HttpURLConnection.HTTP_CONFLICT) {
+            Toast.makeText(this, getString(R.string.file_exists), Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, getString(R.string.unknown_error), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    public void onFolderItemReceived(List<Item> items, Response response) {
+        String url = response.getUrl();
+        if (url.startsWith(Credentials.ROOT_URL)) {
+            for (Item item : items) {
+                if (item.getType() == Item.Type.FILE)
+                    item.setDownloadStatus(new DownloadStatus(isFileOnDevice(item.getId())));
+            }
+            mAdapter = mParentFolder != -1 ?
+                    new ItemAdapter(this, items, new Item(mParentFolder)) :
+                    new ItemAdapter(this, items);
+            mFileListView.setAdapter(mAdapter);
+        }
+        mFileListView.setOnItemClickListener(this);
+        mFileListView.onRefreshComplete();
+    }
+
+    @Override
+    public void onRequestFailed(String message) {
+        if (mFileListView.isRefreshing())
+            mFileListView.onRefreshComplete();
+    }
+
+    @Override
+    public void onItemRenamed() {
+        if (mActionMode != null)
+            mActionMode.finish();
+    }
+
+    @Override
+    public void onProgressUpdate(int progress, String fileName) {
+        BoxHelper.updateDownloadNotification(this, fileName, getString(R.string.downloading),
+                progress, android.R.drawable.stat_sys_download, false);
+        Log.d("Progress", "" + progress);
+
+    }
+
+    int selectedItem = -1;
+
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        if (mActionMode != null)
+            mActionMode.finish();
+        Adapter adapter = parent.getAdapter();
+        Item item = (Item) adapter.getItem(position);
+        if (adapter.getItemViewType(position) == ItemAdapter.BACK) {
+            if (id == 0)
+                mParentFolder = -1;
+            adapter.getItemViewType(position);
+            openFolder(item.getId(), "");
+        } else {
+            String name = item.getName();
+            long itemId = item.getId();
+            Item.Type type = item.getType();
+            if (type == Item.Type.FOLDER) {
+                mParentFolder = mCurrentFolder;
+                openFolder(id, name);
+            } else {
+                try {
+                    if (isFileOnDevice(id)) {
+                        openFile(String.valueOf(String.valueOf(itemId).hashCode()), name);
+                    } else {
+                        item.setDownloadStatus(new DownloadStatus(false, 1));
+                        mAdapter.notifyDataSetChanged();
+                        helper.downloadFile(mDownloadService, String.valueOf(id), name);
+                    }
+                } catch (Exception e) {
+                    Toast.makeText(MainActivity.this, getString(R.string.no_app_found),
+                            Toast.LENGTH_LONG).show();
+                    Log.e(TAG, e.getMessage());
+                }
+            }
+        }
+    }
+
+    @Override
+    public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+        selectedItem = position;
+        if (mActionMode != null) {
+            return false;
+        }
+
+        mActionMode = this.startSupportActionMode(this);
+        view.setSelected(true);
+        return true;
+    }
+
+    @Override
+    public boolean onCreateActionMode(ActionMode actionMode, Menu menu) {
+        return true;
+    }
+
+    @Override
+    public boolean onPrepareActionMode(ActionMode actionMode, Menu menu) {
+        if (mActionMode != null)
+            return false;
+        Item item = mAdapter.getItem(selectedItem - 1);
         long itemId = item.getId();
         Item.Type type = item.getType();
-        menu.setHeaderTitle(getString(R.string.select_option));
+        int order = Menu.FIRST;
 
         if (type == Item.Type.FILE) {
-            if (isFileOnDevice(itemId))
-                menu.add(0, OPEN, Menu.NONE, R.string.open);
-            else
-                menu.add(0, DOWNLOAD, Menu.NONE, R.string.download);
+            if (isFileOnDevice(itemId)) {
+                addMenuItem(menu, OPEN, order, android.R.drawable.ic_menu_view, R.string.open);
+            } else {
+                addMenuItem(menu, DOWNLOAD, order, android.R.drawable.ic_menu_save, R.string.download);
+            }
         } else if (type.equals(KeyHelper.FOLDER)) {
-            menu.add(0, OPEN, Menu.NONE, R.string.open);
+            addMenuItem(menu, OPEN, order, android.R.drawable.ic_menu_view, R.string.open);
         }
-        menu.add(0, COPY, Menu.NONE, R.string.copy);
+        addMenuItem(menu, COPY, order++, android.R.drawable.ic_menu_add, R.string.copy);
         if (mCopyId != 0) {
-            menu.add(0, PASTE, Menu.NONE, R.string.paste);
+            addMenuItem(menu, PASTE, order++, android.R.drawable.ic_menu_set_as, R.string.paste);
         }
-        menu.add(0, DELETE, Menu.NONE, R.string.delete);
-        menu.add(0, RENAME, Menu.NONE, R.string.rename);
+        addMenuItem(menu, DELETE, order++, android.R.drawable.ic_menu_delete, R.string.delete);
+        addMenuItem(menu, RENAME, order++, android.R.drawable.ic_menu_edit, R.string.rename);
+
+        return false;
+    }
+
+    private void addMenuItem(Menu menu, int id, int order, int resIcon, int resName) {
+        MenuItem menuItem = menu.add(0, id, order, resName);
+        menuItem.setIcon(resIcon);
+        MenuItemCompat.setShowAsAction(menuItem, MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
     }
 
     @Override
-    public boolean onContextItemSelected(MenuItem menuItem) {
-        super.onContextItemSelected(menuItem);
-        AdapterView.AdapterContextMenuInfo info;
-        info = (AdapterView.AdapterContextMenuInfo) menuItem.getMenuInfo();
+    public boolean onActionItemClicked(ActionMode actionMode, MenuItem menuItem) {
         int optionSelected = menuItem.getItemId();
-
-        Item item = mAdapter.getItem(info.position - 1);
+        Item item = mAdapter.getItem(selectedItem - 1);
         long itemId = item.getId();
         String name = item.getName();
         Item.Type type = item.getType();
         int etag = item.getEtag();
-        MenuItem itemPaste = menu.findItem(PASTE_OPTION);
+//        MenuItem itemPaste = menu.findItem(PASTE_OPTION);
 
+        if (mActionMode != null)
+            mActionMode.finish();
         switch (optionSelected) {
             case (OPEN):
                 if (type.equals(KeyHelper.FILE)) {
@@ -265,13 +542,12 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
 
             case (COPY):
                 mCopyId = itemId;
-                mCopyType = type;
-                itemPaste.setVisible(true);
+//                itemPaste.setVisible(true);
                 return true;
 
             case (PASTE):
                 mCopyId = 0;
-                itemPaste.setVisible(false);
+//                itemPaste.setVisible(false);
                 helper.copyFile(String.valueOf(mCopyId), String.valueOf(mCurrentFolder));
                 return true;
 
@@ -286,82 +562,16 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
                 return true;
 
             case (RENAME):
-//                rename(ident, name, type);
+                renameItem(item, type == Item.Type.FOLDER);
                 return true;
         }
+
         return false;
     }
 
-    private File createFile(String path, String fileName) {
-        String sFolder = path + "/";
-        File file = new File(sFolder);
-        if (!file.exists())
-            file.mkdirs();
-
-        try {
-            file = new File(sFolder + fileName);
-
-            if (!file.createNewFile()) {
-                file.delete();
-                if (!file.createNewFile()) {
-                    return null;
-                }
-            }
-        } catch (Exception e) {
-            return null;
-        }
-        return file;
-    }
-
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.main_menu, menu);
-        this.menu = menu;
-        return super.onCreateOptionsMenu(menu);
-    }
-
-//    @Override
-//    public boolean onPrepareOptionsMenu(Menu menu) {
-//        super.onPrepareOptionsMenu(menu);
-//        return true;
-//    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        super.onOptionsItemSelected(item);
-
-        switch (item.getItemId()) {
-//            case android.R.id.home:
-//                //homeButton.performClick();
-//                break;
-
-            case (UPLOAD):
-                Intent intent = new Intent(getBaseContext(), ExplorerActivity.class);
-                startActivityForResult(intent, 1);
-                break;
-
-            case (CREATE_FOLDER):
-                createNewFolder();
-                break;
-
-            case (PASTE_OPTION):
-                String url = Credentials.ROOT_URL + mCopyType + "s/" + mCopyId + "/copy";
-                String data = "{\"parent\": {\"id\" : " + mCurrentFolder + "}}";
-//                mCopyId = null;
-                MenuItem itemPaste = menu.findItem(PASTE_OPTION);
-                itemPaste.setVisible(false);
-                if (data != null)
-//                    helper.createItem(url, data);
-                    break;
-
-            case (LOGOUT):
-                SharedPreferences userDetails = getSharedPreferences(KeyHelper.USER_DETAILS, MODE_PRIVATE);
-                Editor edit = userDetails.edit();
-                edit.clear();
-                edit.commit();
-                BoxHelper.authorize(this);
-        }
-        return false;
+    public void onDestroyActionMode(ActionMode actionMode) {
+        mActionMode = null;
     }
 
     @Override
@@ -430,39 +640,36 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
         alertDialog.show();
     }
 
-//    /**
-//     * Renames file or folder
-//     *
-//     * @param ident, folder or file id
-//     * @param name,  folder or file name
-//     * @param type,  type of data: file or folder.
-//     */
-//    private void rename(final String ident, final String name, final String type) {
-//        LayoutInflater inflater = getLayoutInflater();
-//        View dialog = inflater.inflate(R.layout.rename_dialog, null);
-//        final EditText folderNameEdit = (EditText) dialog.findViewById(R.id.folder_name_box);
-//        folderNameEdit.setText(name);
-//        AlertDialog.Builder renameDialogBuilder = new AlertDialog.Builder(this);
-//        renameDialogBuilder.setTitle(R.string.rename);
-//        renameDialogBuilder
-//                .setCancelable(true)
-//                .setView(dialog)
-//                .setPositiveButton(R.string.rename, new DialogInterface.OnClickListener() {
-//
-//                    public void onClick(DialogInterface dialog, int id) {
-//                        String newName = folderNameEdit.getText().toString();
+    /**
+     * Renames file or folder
+     *
+     * @param item, folder or file
+     */
+    private void renameItem(final Item item, final boolean isFolder) {
+        LayoutInflater inflater = getLayoutInflater();
+        View dialog = inflater.inflate(R.layout.rename_dialog, null);
+        final EditText folderNameEdit = (EditText) dialog.findViewById(R.id.folder_name_box);
+        folderNameEdit.setText(item.getName());
+        AlertDialog.Builder renameDialogBuilder = new AlertDialog.Builder(this);
+        renameDialogBuilder.setTitle(R.string.rename);
+        renameDialogBuilder
+                .setCancelable(true)
+                .setView(dialog)
+                .setPositiveButton(R.string.rename, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        helper.renameItem(String.valueOf(item.getId()), folderNameEdit.getText().toString(), isFolder);
 //                        helper.renameItem(Credentials.ROOT_URL + type + "s/" + ident, "{\"name\":\"" + newName + "\"}",
 //                                name, newName, ident);
-//                    }
-//                })
-//                .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
-//                    public void onClick(DialogInterface dialog, int id) {
-//                        dialog.cancel();
-//                    }
-//                });
-//        AlertDialog alertDialog = renameDialogBuilder.create();
-//        alertDialog.show();
-//    }
+                    }
+                })
+                .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                    }
+                });
+        AlertDialog alertDialog = renameDialogBuilder.create();
+        alertDialog.show();
+    }
 
 //    private void updateFolderList(){
 //        for(Folder folder : mPathList){
@@ -550,11 +757,6 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
         helper.getFolderItems(mCurrentFolder);
     }
 
-    /**
-     * @TODO Fix here
-     * @param id
-     * @param name
-     */
     private void openFile(String id, String name) {
         Intent openIntent = new Intent(android.content.Intent.ACTION_VIEW);
         java.io.File file = new java.io.File(KeyHelper.EXT_STORAGE_PATH + "/" + id);
@@ -568,104 +770,7 @@ public final class MainActivity extends ActionBarActivity implements UploadListe
     private boolean isFileOnDevice(long fileId) {
         java.io.File data = new java.io.File(KeyHelper.EXT_STORAGE_PATH + "/" + String.valueOf(fileId).hashCode());
         return data.exists();
-//        SharedPreferences sharedPreferences = getSharedPreferences(KeyHelper.DOWNLOADED_FILES, MODE_PRIVATE);
-//        Map<String, ?> idList = sharedPreferences.getAll();
-//        String curName = (String) idList.get(String.valueOf(fileId));
-//        return curName != null && curName.equals(String.valueOf(String.valueOf(fileId).hashCode()));
     }
 
-    private boolean isNetworkConnected() {
-        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        return cm.getActiveNetworkInfo() != null;
-    }
 
-    @Override
-    public void onUploadStarted(String name) {
-        Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra(KeyHelper.MESSAGE, getString(R.string.uploading) + " " + name);
-        sendBroadcast(intent);
-    }
-
-    @Override
-    public void onProgressChanged(Integer progress, String name, String action) {
-        Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra(KeyHelper.MESSAGE, action + " " + name);
-        intent.putExtra(KeyHelper.PROGRESS, progress);
-        sendBroadcast(intent);
-    }
-
-    @Override
-    public void onUploadCompleted(String name) {
-        Intent intent = new Intent(BoxWidgetProvider.ACTION_STATUS_CHANGED);
-        intent.putExtra(KeyHelper.MESSAGE, getString(R.string.upload_completed) + " " + name);
-        sendBroadcast(intent);
-    }
-
-    @Override
-    public void onUploadFailed(int code) {
-        if (code == HttpURLConnection.HTTP_CONFLICT) {
-            Toast.makeText(this, getString(R.string.file_exists), Toast.LENGTH_LONG).show();
-        } else {
-            Toast.makeText(this, getString(R.string.unknown_error), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    @Override
-    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-        Adapter adapter = parent.getAdapter();
-        Item item = (Item) adapter.getItem(position);
-        if (adapter.getItemViewType(position) == ItemAdapter.BACK) {
-            if (id == 0)
-                mParentFolder = -1;
-            adapter.getItemViewType(position);
-            openFolder(item.getId(), "");
-        } else {
-            String name = item.getName();
-            long itemId = item.getId();
-            Item.Type type = item.getType();
-            if (type == Item.Type.FOLDER) {
-                mParentFolder = mCurrentFolder;
-                openFolder(id, name);
-            } else {
-                try {
-                    if (isFileOnDevice(id)) {
-                        openFile(String.valueOf(String.valueOf(itemId).hashCode()), name);
-                    } else {
-                        item.setDownloadStatus(new DownloadStatus(false, 1));
-                        mAdapter.notifyDataSetChanged();
-                        helper.downloadFile(mDownloadService, String.valueOf(id), name);
-                    }
-                } catch (Exception e) {
-                    Toast.makeText(MainActivity.this, getString(R.string.no_app_found),
-                            Toast.LENGTH_LONG).show();
-                    Log.e(TAG, e.getMessage());
-                }
-            }
-        }
-    }
-
-    @Override
-    public void onFolderItemReceived(List<Item> items, Response response) {
-        String url = response.getUrl();
-        if (url.startsWith(Credentials.ROOT_URL)) {
-            for (Item item : items) {
-                if (item.getType() == Item.Type.FILE)
-                    item.setDownloadStatus(new DownloadStatus(isFileOnDevice(item.getId())));
-            }
-            mAdapter = mParentFolder != -1 ?
-                    new ItemAdapter(this, items, new Item(mParentFolder)) :
-                    new ItemAdapter(this, items);
-            mFileListView.setAdapter(mAdapter);
-        }
-        mFileListView.setOnItemClickListener(this);
-        mFileListView.onRefreshComplete();
-    }
-
-    @Override
-    public void onProgressUpdate(int progress, String fileName) {
-        BoxHelper.updateDownloadNotification(this, fileName, getString(R.string.downloading),
-                progress, android.R.drawable.stat_sys_download, false);
-        Log.d("Progress", "" + progress);
-
-    }
 }

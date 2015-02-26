@@ -20,25 +20,33 @@ import com.google.gson.TypeAdapterFactory;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import com.squareup.okhttp.OkHttpClient;
 
 import org.apache.http.HttpStatus;
 
 import java.io.IOException;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.util.List;
 
 import retrofit.Callback;
 import retrofit.RequestInterceptor;
 import retrofit.RestAdapter;
 import retrofit.RetrofitError;
+import retrofit.client.OkClient;
 import retrofit.client.Response;
 import retrofit.converter.GsonConverter;
 import retrofit.http.Body;
-import retrofit.http.DELETE;
 import retrofit.http.Field;
 import retrofit.http.FormUrlEncoded;
 import retrofit.http.GET;
 import retrofit.http.POST;
+import retrofit.http.PUT;
 import retrofit.http.Path;
+import retrofit.http.RestMethod;
+
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 public final class APIHelper {
 
@@ -47,14 +55,14 @@ public final class APIHelper {
     private Context mContext;
     private LoginDetails loginDetails = null;
 
-    private RestListener restListener;
+    private RestListener callback;
     private LoginListener loginListener;
     private long currentFolder = 0;
 
     public APIHelper(Context context) {
         mContext = context;
         if (mContext.getClass().getSimpleName().equals(MainActivity.class.getSimpleName()))
-            restListener = (RestListener) mContext;
+            callback = (RestListener) mContext;
         else if (mContext.getClass().getSimpleName().equals(LoginActivity.class.getSimpleName()))
             loginListener = (LoginListener) mContext;
     }
@@ -121,49 +129,51 @@ public final class APIHelper {
                 request.addHeader("Authorization", "Bearer " + loginDetails.getAccessToken());
             }
         };
+
         RestAdapter restAdapter = new RestAdapter.Builder()
                 .setLogLevel(RestAdapter.LogLevel.FULL)
                 .setEndpoint(Credentials.ROOT_URL)
                 .setConverter(new GsonConverter(gson))
                 .setRequestInterceptor(requestInterceptor)
                 .build();
+
         final BoxService service = restAdapter.create(BoxService.class);
         service.getFolderItems(String.valueOf(folderId), new Callback<List<Item>>() {
             @Override
             public void success(List<Item> items, Response response) {
                 currentFolder = folderId;
-                restListener.onFolderItemReceived(items, response);
+                callback.onFolderItemReceived(items, response);
             }
 
             @Override
             public void failure(RetrofitError error) {
-                if (error != null) {
-                    Log.e(TAG, error.getMessage());
-                    if (error.getResponse() != null) {
-                        if (error.getResponse().getStatus() == HttpStatus.SC_UNAUTHORIZED) {
-                            if (loginDetails.getRefreshToken() == null) {
-                                BoxHelper.authorize(mContext);
-                            } else {
-                                refreshAccessToken(new LoginListener() {
-                                    @Override
-                                    public void onAccessTokenReceived(LoginDetails loginDetails, Response response) {
-                                        BoxHelper.saveUserDetails(mContext, loginDetails);
-                                        service.getFolderItems(String.valueOf(folderId), new Callback<List<Item>>() {
-                                            @Override
-                                            public void success(List<Item> items, Response response) {
-                                                restListener.onFolderItemReceived(items, response);
-                                            }
+                if (error == null)
+                    return;
 
-                                            @Override
-                                            public void failure(RetrofitError error) {
-                                                Log.e(TAG, error.getMessage());
-                                                BoxHelper.authorize(mContext);
-                                            }
-                                        });
+                if (RetrofitError.Kind.NETWORK == error.getKind()) {
+                    callback.onRequestFailed(mContext.getString(R.string.no_internet_connection));
+                } else if (error.getResponse() != null && error.getResponse().getStatus() == HttpStatus.SC_UNAUTHORIZED) {
+                    if (loginDetails.getRefreshToken() == null) {
+                        BoxHelper.authorize(mContext);
+                    } else {
+                        refreshAccessToken(new LoginListener() {
+                            @Override
+                            public void onAccessTokenReceived(LoginDetails loginDetails, Response response) {
+                                BoxHelper.saveUserDetails(mContext, loginDetails);
+                                service.getFolderItems(String.valueOf(folderId), new Callback<List<Item>>() {
+                                    @Override
+                                    public void success(List<Item> items, Response response) {
+                                        callback.onFolderItemReceived(items, response);
+                                    }
+
+                                    @Override
+                                    public void failure(RetrofitError error) {
+                                        callback.onRequestFailed(mContext.getString(R.string.error_occured));
+                                        BoxHelper.authorize(mContext);
                                     }
                                 });
                             }
-                        }
+                        });
                     }
                 }
             }
@@ -193,9 +203,11 @@ public final class APIHelper {
                     public void failure(RetrofitError error) {
                         if (error == null)
                             return;
-                        if (error.getResponse().getStatus() == HttpStatus.SC_CONFLICT) {
+                        if (RetrofitError.Kind.NETWORK == error.getKind())
+                            Toast.makeText(mContext, mContext.getString(R.string.no_internet_connection), Toast.LENGTH_LONG).show();
+                        else if (error.getResponse().getStatus() == HttpStatus.SC_CONFLICT)
                             Toast.makeText(mContext, mContext.getString(R.string.folder_already_exists), Toast.LENGTH_LONG).show();
-                        } else if (error.getResponse().getStatus() == HttpStatus.SC_UNAUTHORIZED) {
+                        else if (error.getResponse().getStatus() == HttpStatus.SC_UNAUTHORIZED) {
                             Log.e(TAG, error.getMessage());
                             if (error.getResponse() != null) {
                                 if (error.getResponse().getStatus() == HttpStatus.SC_UNAUTHORIZED) {
@@ -303,7 +315,7 @@ public final class APIHelper {
                 .setRequestInterceptor(requestInterceptor)
                 .build();
         final BoxService service = restAdapter.create(BoxService.class);
-        service.deleteFile(fileId, isFolder ? "folders" : "files", new Callback<Object>() {
+        service.deleteItem(fileId, isFolder ? "folders" : "files", true, new Callback<Object>() {
             @Override
             public void success(Object o, Response response) {
                 getFolderItems(currentFolder);
@@ -327,7 +339,7 @@ public final class APIHelper {
                                     @Override
                                     public void onAccessTokenReceived(LoginDetails loginDetails, Response response) {
                                         BoxHelper.saveUserDetails(mContext, loginDetails);
-                                        service.deleteFile(fileId, "files", new Callback<Object>() {
+                                        service.deleteItem(fileId, "files", true, new Callback<Object>() {
                                             @Override
                                             public void success(Object o, Response response) {
                                                 getFolderItems(currentFolder);
@@ -368,12 +380,34 @@ public final class APIHelper {
         });
     }
 
-//    public void renameItem(String requestUrl, String data,
-//                           String oldName, String newName, String ident) {
-//        UpdateData put = new UpdateData();
-//        put.execute(requestUrl, data, oldName, newName, ident);
-//    }
-//
+    public void renameItem(String itemId, String newName, boolean isFolder) {
+        RequestInterceptor requestInterceptor = new RequestInterceptor() {
+            @Override
+            public void intercept(RequestFacade request) {
+                request.addHeader("Authorization", "Bearer " + loginDetails.getAccessToken());
+            }
+        };
+        RestAdapter restAdapter = new RestAdapter.Builder()
+                .setLogLevel(RestAdapter.LogLevel.FULL)
+                .setEndpoint(Credentials.ROOT_URL)
+                .setRequestInterceptor(requestInterceptor)
+                .setClient(new OkClient(new OkHttpClient()))
+                .build();
+        final BoxService service = restAdapter.create(BoxService.class);
+        service.renameItem(itemId, isFolder ? "folders" : "files", new File(newName), new Callback<Object>() {
+            @Override
+            public void success(Object o, Response response) {
+                getFolderItems(currentFolder);
+                callback.onItemRenamed();
+            }
+
+            @Override
+            public void failure(RetrofitError error) {
+
+            }
+        });
+    }
+
 //    public void createItem(String requestUrl, String data) {
 //        CreateData post = new CreateData();
 //        post.execute(requestUrl, data);
@@ -609,12 +643,12 @@ public final class APIHelper {
 //     * @param[1] - mAccessToken, token to authorize
 //     * @param[2] - data, data to change
 //     * @param[3] - oldName
-//     * @param[4] - newName
+//     * @param[4] - name
 //     * @param[5] - ident
 //     */
 //    class UpdateData extends AsyncGetData {
 //        String oldName = null;
-//        String newName = null;
+//        String name = null;
 //        String ident = null;
 //
 //        @Override
@@ -624,7 +658,7 @@ public final class APIHelper {
 //            final String accessToken = param[1];
 //            final String data = param[2];
 //            oldName = param[3];
-//            newName = param[4];
+//            name = param[4];
 //            ident = param[5];
 //            HttpClient client = new DefaultHttpClient();
 //            HttpPut put = new HttpPut(requestUrl);
@@ -649,7 +683,7 @@ public final class APIHelper {
 //            } else if (result == HttpURLConnection.HTTP_OK) {
 //                Toast.makeText(mContext, "Item successfully have been renamed.",
 //                        Toast.LENGTH_LONG).show();
-//                mFileHelper.renameFileOnDevice(ident, oldName, newName, KeyHelper.EXT_STORAGE_PATH);
+//                mFileHelper.renameFileOnDevice(ident, oldName, name, KeyHelper.EXT_STORAGE_PATH);
 //            }
 //        }
 //    }
@@ -717,8 +751,12 @@ public final class APIHelper {
         @POST("/files/{id}/copy")
         void copyFile(@Body Parent parent, @Path("id") String id, retrofit.Callback<Object> callback);
 
-        @DELETE("/{item_type}/{file_id}")
-        void deleteFile(@Path("file_id") String fileId, @Path("item_type") String itemType, retrofit.Callback<Object> callback);
+        @FormUrlEncoded
+        @BODY_DELETE("/{item_type}/{file_id}")
+        void deleteItem(@Path("file_id") String fileId, @Path("item_type") String itemType, @Field("recursive") boolean isRecursive, retrofit.Callback<Object> callback);
+
+        @PUT("/{item_type}/{file_id}")
+        void renameItem(@Path("file_id") String fileId, @Path("item_type") String itemType, @Body File file, retrofit.Callback<Object> callback);
     }
 
     public class ItemTypeAdapterFactory implements TypeAdapterFactory {
@@ -742,7 +780,6 @@ public final class APIHelper {
                             jsonElement = jsonObject.get("entries");
                         }
                     }
-
                     return delegate.fromJsonTree(jsonElement);
                 }
             }.nullSafe();
@@ -759,6 +796,14 @@ public final class APIHelper {
         }
     }
 
+    class File {
+        String name;
+
+        File(String name) {
+            this.name = name;
+        }
+    }
+
     class Parent {
         final String id;
 
@@ -769,9 +814,20 @@ public final class APIHelper {
 
     public interface RestListener {
         public void onFolderItemReceived(List<Item> items, Response response);
+
+        public void onRequestFailed(String message);
+
+        public void onItemRenamed();
     }
 
     public interface LoginDataListener {
         public void OnLoginDataRequired();
+    }
+
+    @Target(METHOD)
+    @Retention(RUNTIME)
+    @RestMethod(value = "DELETE", hasBody = true)
+    public @interface BODY_DELETE {
+        String value();
     }
 }

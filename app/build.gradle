@@ -39,6 +39,8 @@ dependencies {
     compile 'org.apache.httpcomponents:httpclient:4.3'
     compile 'com.navercorp.pulltorefresh:library:3.2.0@aar'
     compile 'com.squareup.retrofit:retrofit:1.8.0'
+    compile 'com.squareup.okhttp:okhttp:2.2.0'
+    compile 'com.squareup.okhttp:okhttp-urlconnection:2.2.0'
 }
 
 

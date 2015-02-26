@@ -48,5 +48,6 @@
     <string name="file_successfully_copied">File successfully copied</string>
     <string name="file_sucessfully_deleted">File successfully deleted</string>
     <string name="download_started">Download started...</string>
+    <string name="item_successfully_renamed">Item successfully renamed!</string>
 
 </resources>
